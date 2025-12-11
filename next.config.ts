@@ -8,7 +8,26 @@ const nextConfig: NextConfig = {
         hostname: 'cdn-icons-png.flaticon.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'avatars.githubusercontent.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+        pathname: '/**',
+      }
     ],
+  },
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/admin',
+        permanent: false,
+      },
+    ]
   },
 };
 
