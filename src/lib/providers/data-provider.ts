@@ -86,6 +86,7 @@ export interface IDataProvider {
      * Canlı AI tahminini sisteme ekle
      */
     addPrediction(prediction: AIPredictionPayload): Promise<void>
+    getPredictions(limit?: number): Promise<AIPredictionPayload[]>
 }
 
 // =============================================================================

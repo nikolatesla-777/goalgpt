@@ -295,4 +295,8 @@ export class FakeProvider {
         console.log(`[FakeProvider] Adding prediction for match ${prediction.matchId}:`, prediction.prediction)
         FAKE_PREDICTIONS.unshift(prediction)
     }
+
+    async getPredictions(limit: number = 50): Promise<AIPredictionPayload[]> {
+        return FAKE_PREDICTIONS.slice(0, limit)
+    }
 }
