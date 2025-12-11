@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
     Search, Bell, Menu, X, Filter, Download, MoreVertical,
@@ -13,7 +13,8 @@ import {
     Database, Bot, FileText, Wallet, Settings2, Moon, Sun,
     RefreshCw, XCircle, Apple, MessageCircle,
     DollarSign, ShoppingCart, AlertTriangle, UserPlus,
-    PlayCircle, UserCheck, UserMinus, Users2, Eye, Ticket
+    PlayCircle, UserCheck, UserMinus, Users2, Eye, Ticket,
+    Zap, Clock
 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
 import { motion } from 'framer-motion'
@@ -432,6 +433,44 @@ export default function DashboardClient() {
     const [selectedPeriod, setSelectedPeriod] = useState('Bu Ay')
     const itemsPerPage = 15
 
+    // AI Predictions from Supabase
+    interface AIPrediction {
+        id: string
+        matchId: string
+        homeTeam: string
+        awayTeam: string
+        league: string
+        prediction: string
+        analysis: string
+        confidence: number
+        minute: string | null
+        status: string
+        receivedAt: string
+    }
+    const [aiPredictions, setAiPredictions] = useState<AIPrediction[]>([])
+    const [loadingPredictions, setLoadingPredictions] = useState(true)
+
+    // Fetch AI predictions from Supabase
+    useEffect(() => {
+        const fetchPredictions = async () => {
+            try {
+                const res = await fetch('/api/predictions/raw?limit=10')
+                const data = await res.json()
+                if (data.success) {
+                    setAiPredictions(data.data)
+                }
+            } catch (error) {
+                console.error('Error fetching predictions:', error)
+            } finally {
+                setLoadingPredictions(false)
+            }
+        }
+        fetchPredictions()
+        // Refresh every 30 seconds
+        const interval = setInterval(fetchPredictions, 30000)
+        return () => clearInterval(interval)
+    }, [])
+
     const allMetrics = [
         { id: 'revenue', title: 'Toplam Gelir', data: FAKE_METRICS.revenue, icon: DollarSign, color: 'emerald', isMoney: true, row: 1 },
         { id: 'activeSubs', title: 'Aktif Aboneler', data: FAKE_METRICS.activeSubs, icon: Users, color: 'blue', row: 1 },
@@ -607,6 +646,82 @@ export default function DashboardClient() {
                     </div>
                 </div>
             ))}
+
+            {/* 🔥 AI Predictions from Supabase */}
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-2xl p-6 shadow-sm"
+            >
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                            <Zap size={20} className="text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-bold text-slate-800">Gelen AI Tahminleri</h2>
+                            <p className="text-xs text-slate-500">Supabase predictions_raw tablosundan canlı veri</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="relative flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                        </span>
+                        <span className="text-xs font-medium text-green-600">Canlı</span>
+                    </div>
+                </div>
+
+                {loadingPredictions ? (
+                    <div className="flex items-center justify-center py-8">
+                        <RefreshCw size={24} className="animate-spin text-purple-500" />
+                        <span className="ml-2 text-slate-500">Yükleniyor...</span>
+                    </div>
+                ) : aiPredictions.length === 0 ? (
+                    <div className="text-center py-8">
+                        <Clock size={48} className="mx-auto text-slate-300 mb-3" />
+                        <p className="text-slate-500">Henüz tahmin gelmedi</p>
+                        <p className="text-xs text-slate-400 mt-1">API üzerinden tahmin bekleniyor...</p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {aiPredictions.map((pred) => (
+                            <div
+                                key={pred.id}
+                                className="bg-white rounded-xl p-4 border border-purple-100 hover:border-purple-300 transition-colors"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="text-center">
+                                            <p className="text-sm font-bold text-slate-800">{pred.homeTeam}</p>
+                                            <p className="text-xs text-slate-400">vs</p>
+                                            <p className="text-sm font-bold text-slate-800">{pred.awayTeam}</p>
+                                        </div>
+                                        <div className="border-l border-slate-200 pl-4">
+                                            <p className="text-xs text-slate-500">{pred.league}</p>
+                                            <p className="text-lg font-bold text-purple-600">{pred.prediction}</p>
+                                            {pred.analysis && (
+                                                <p className="text-xs text-slate-400 mt-1 max-w-xs truncate">{pred.analysis}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className={`px-2 py-1 rounded text-xs font-bold ${pred.status === 'pending' ? 'bg-yellow-100 text-yellow-600' :
+                                            pred.status === 'matched' ? 'bg-green-100 text-green-600' :
+                                                'bg-slate-100 text-slate-600'
+                                            }`}>
+                                            {pred.status === 'pending' ? 'Bekliyor' : pred.status}
+                                        </span>
+                                        <p className="text-xs text-slate-400 mt-1">
+                                            {new Date(pred.receivedAt).toLocaleString('tr-TR')}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </motion.div>
 
             {/* Multi-Line Chart */}
             <motion.div key={activeMetric + '-chart'} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
