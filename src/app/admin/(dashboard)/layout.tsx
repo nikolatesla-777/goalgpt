@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { createClient } from '@/utils/supabase/client'
 import {
     LayoutDashboard,
     Users,
@@ -36,7 +37,28 @@ import {
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true)
     const [expandedMenu, setExpandedMenu] = useState<string | null>('predictions')
+    const [userEmail, setUserEmail] = useState<string | null>(null)
+    const [userName, setUserName] = useState<string | null>(null)
     const pathname = usePathname()
+    const router = useRouter()
+
+    useEffect(() => {
+        const fetchUser = async () => {
+            const supabase = createClient()
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                setUserEmail(user.email || null)
+                setUserName(user.user_metadata?.full_name || user.email?.split('@')[0] || 'Admin')
+            }
+        }
+        fetchUser()
+    }, [])
+
+    const handleLogout = async () => {
+        const supabase = createClient()
+        await supabase.auth.signOut()
+        router.push('/admin/login')
+    }
 
     // Enhanced Navigation Structure
     const navigation = [
@@ -167,15 +189,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                     {/* User Profile / Logout */}
                     <div className="p-3 border-t border-slate-100">
-                        <button className="flex items-center gap-3 w-full p-2.5 rounded-lg hover:bg-slate-50 transition-colors group">
-                            <div className="w-9 h-9 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-600">
-                                <ShieldAlert size={16} />
+                        <button
+                            onClick={handleLogout}
+                            className="flex items-center gap-3 w-full p-2.5 rounded-lg hover:bg-red-50 transition-colors group"
+                        >
+                            <div className="w-9 h-9 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-600 uppercase font-bold text-sm">
+                                {userName ? userName.charAt(0) : 'A'}
                             </div>
-                            <div className="text-left flex-1">
-                                <p className="text-sm font-semibold text-slate-700">Süper Admin</p>
-                                <p className="text-xs text-slate-400">Root Access</p>
+                            <div className="text-left flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-slate-700 truncate">{userName || 'Admin'}</p>
+                                <p className="text-xs text-slate-400 truncate">{userEmail || 'Yükleniyor...'}</p>
                             </div>
-                            <LogOut size={16} className="text-slate-400 group-hover:text-red-500 transition-colors" />
+                            <LogOut size={16} className="text-slate-400 group-hover:text-red-500 transition-colors flex-shrink-0" />
                         </button>
                     </div>
                 </div>
