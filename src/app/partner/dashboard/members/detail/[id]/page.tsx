@@ -2,7 +2,7 @@ import { ArrowLeft, CreditCard, Activity, BellRing, Smartphone, Ban } from 'luci
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
-import { getPartner } from '../../../utils'
+import { getPartner } from '../../../../utils'
 
 export default async function MemberDetailPage({ params }: { params: { id: string } }) {
     const partner = await getPartner()
