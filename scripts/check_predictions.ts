@@ -33,7 +33,7 @@ async function checkPredictions() {
         if (rawData && rawData.length > 0) {
             console.log('   Last 5 records:')
             rawData.forEach((r, i) => {
-                console.log(`   ${i + 1}. ${r.home_team} vs ${r.away_team} - ${r.prediction_type} (${r.received_at})`)
+                console.log(`   ${i + 1}. ${r.home_team_name} vs ${r.away_team_name} - ${r.prediction_type} (${r.received_at})`)
             })
         } else {
             console.log('   No records found!')
