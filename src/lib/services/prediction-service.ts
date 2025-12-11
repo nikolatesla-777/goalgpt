@@ -22,6 +22,11 @@ export class PredictionService {
             // 2. Add to Data Provider
             await DataProvider.addPrediction(payload)
 
+            // 3. Simulate Notification Flow (Log to console for Vercel logs)
+            if (this.shouldTriggerNotification(payload)) {
+                this.simulateNotification(payload)
+            }
+
             return {
                 success: true,
                 id: payload.matchId,
@@ -145,5 +150,44 @@ export class PredictionService {
             }
         }
         return predictions
+    } // End of parseLegacyPayload
+
+    // --- Notification Simulation Logic ---
+
+    private static shouldTriggerNotification(p: AIPredictionPayload): boolean {
+        // Simple rule: Trigger if confidence > 0 (all predictions in legacy seemed to notify)
+        return true
+    }
+
+    private static simulateNotification(p: AIPredictionPayload) {
+        // Replicating Legacy 'PredictionPublishedComposer.cs'
+        // Title: Min' Home - Away (Score) -> We might not have score? legacy payload has it in raw text
+        // Body: "{Sender}: {Prediction}"
+
+        let title = `${p.homeTeam} - ${p.awayTeam}`
+        if (p.minute) title = `${p.minute}' ${title}`
+        // if (score) title += ` (${score})` -> parsed from raw text in simulation if needed
+
+        // Sender fallback
+        const sender = p.botId || 'GoalGPT AI'
+        const body = `${sender}: ${p.prediction}`
+
+        const logPayload = {
+            event: 'NOTIFICATION_SIMULATION',
+            timestamp: new Date().toISOString(),
+            target: 'All Active Devices (Simulated)',
+            content: {
+                title: title,
+                body: body,
+                sound: 'default',
+                badge: 1
+            },
+            metadata: {
+                matchId: p.matchId,
+                predictionId: p.matchId
+            }
+        }
+
+        console.log(JSON.stringify(logPayload, null, 2))
     }
 }

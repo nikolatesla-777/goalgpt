@@ -10,6 +10,7 @@ export interface AIPredictionPayload {
     analysis: string;          // Brief AI rationale
     timestamp: number;         // Unix timestamp of generation
     botId?: string;            // Which bot generated this?
+    minute?: string;           // Match minute (e.g. "45")
     // derived fields for legacy support
     rawText?: string;
     originalId?: number;
