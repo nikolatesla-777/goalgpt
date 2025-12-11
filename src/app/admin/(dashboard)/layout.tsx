@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
@@ -28,25 +29,41 @@ import {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+    const [mounted, setMounted] = useState(false)
     const [expandedMenu, setExpandedMenu] = useState<string | null>('predictions')
     const [userEmail, setUserEmail] = useState<string | null>(null)
     const [userName, setUserName] = useState<string | null>(null)
     const pathname = usePathname()
     const router = useRouter()
 
-    // Set initial state ONLY ONCE on mount - no resize listener
+    // Mount check for portal
     useEffect(() => {
+        setMounted(true)
+        // Set initial state based on screen size
         setIsSidebarOpen(window.innerWidth >= 1024)
     }, [])
 
-    // Close sidebar function
-    const closeSidebar = () => {
-        setIsSidebarOpen(false)
-    }
+    // Lock body scroll when sidebar is open on mobile
+    useEffect(() => {
+        if (isSidebarOpen && window.innerWidth < 1024) {
+            document.body.style.overflow = 'hidden'
+        } else {
+            document.body.style.overflow = ''
+        }
+        return () => { document.body.style.overflow = '' }
+    }, [isSidebarOpen])
 
-    const openSidebar = () => {
-        setIsSidebarOpen(true)
-    }
+    // Escape key to close
+    useEffect(() => {
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setIsSidebarOpen(false)
+        }
+        window.addEventListener('keydown', handleEscape)
+        return () => window.removeEventListener('keydown', handleEscape)
+    }, [])
+
+    const closeSidebar = () => setIsSidebarOpen(false)
+    const openSidebar = () => setIsSidebarOpen(true)
     useEffect(() => {
         const fetchUser = async () => {
             const supabase = createClient()
@@ -117,24 +134,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return (
         <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
 
-            {/* Mobile Overlay */}
-            {isSidebarOpen && (
+            {/* Mobile Overlay - Rendered via Portal for reliable clicks */}
+            {mounted && isSidebarOpen && createPortal(
                 <div
-                    className="fixed inset-0 bg-black/70 z-[100] lg:hidden"
+                    className="fixed inset-0 bg-black/70 z-[9998] lg:hidden"
                     onClick={closeSidebar}
-                    onTouchStart={closeSidebar}
-                    role="button"
-                    aria-label="Menüyü kapat"
-                />
+                    style={{ touchAction: 'none' }}
+                />,
+                document.body
             )}
 
-            {/* Sidebar - Highest z-index on mobile */}
-            <aside className={`
-                fixed top-0 left-0 z-[110] h-full w-[280px] bg-white shadow-2xl lg:shadow-sm transition-transform duration-300 ease-in-out
-                lg:w-64 lg:border-r lg:border-slate-200
-                ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-                lg:translate-x-0
-            `}>
+            {/* Sidebar */}
+            <aside
+                className={`
+                    fixed top-0 left-0 z-[9999] h-full w-[85vw] max-w-[320px] bg-white shadow-2xl lg:shadow-sm transition-transform duration-300 ease-in-out
+                    lg:w-64 lg:border-r lg:border-slate-200 lg:z-40
+                    ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+                    lg:translate-x-0
+                `}
+                style={{ touchAction: 'pan-y' }}
+            >
                 <div className="h-full flex flex-col overflow-hidden">
                     {/* Logo Area */}
                     <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100 flex-shrink-0">
@@ -149,11 +168,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         </div>
                         <button
                             type="button"
-                            onClick={closeSidebar}
-                            onTouchStart={closeSidebar}
-                            className="p-3 text-slate-600 hover:text-slate-900 active:bg-slate-100 lg:hidden rounded-xl touch-manipulation"
+                            onClick={() => {
+                                console.log('Close clicked')
+                                setIsSidebarOpen(false)
+                            }}
+                            className="w-12 h-12 flex items-center justify-center text-slate-600 hover:text-slate-900 active:bg-slate-100 lg:hidden rounded-xl"
                         >
-                            <X size={28} strokeWidth={2.5} />
+                            <X size={32} strokeWidth={2} />
                         </button>
                     </div>
 
