@@ -156,7 +156,13 @@ export class SupabaseProvider implements IDataProvider {
     }
 
     async getPredictions(limit: number = 50): Promise<AIPredictionPayload[]> {
-        const { data, error } = await this.supabase
+        // Use service role key for server-side reads (bypasses RLS)
+        const supabaseAdmin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+            process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+        )
+
+        const { data, error } = await supabaseAdmin
             .from('predictions_raw')
             .select('*')
             .order('received_at', { ascending: false })
