@@ -2,62 +2,103 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PredictionService } from '@/lib/services/prediction-service'
 import { AIPredictionPayload, LegacyPredictionPayload } from '@/lib/types/predictions'
+import { LoggerService } from '@/lib/services/logger-service'
 
 export async function POST(request: NextRequest) {
-    try {
-        // 1. Parse Body first to detect format
-        const body = await request.json()
+    let body: any = {}
+    let responseBody: any = {}
+    let status = 200
 
-        // 2. Determine if Legacy Format (Id, Date, Prediction)
+    try {
+        // 1. Parse Body
+        try {
+            body = await request.json()
+        } catch (e) {
+            status = 400
+            responseBody = { success: false, message: 'Invalid JSON body' }
+
+            // Log Log Log
+            await LoggerService.logApiRequest({
+                endpoint: '/api/v1/ingest/predictions',
+                method: 'POST',
+                headers: Object.fromEntries(request.headers),
+                body: null, // Body parse failed
+                response_status: status,
+                response_body: responseBody,
+                ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+                user_agent: request.headers.get('user-agent') || 'unknown'
+            })
+
+            return NextResponse.json(responseBody, { status })
+        }
+
+        // 2. Determine Format
         const isLegacy = 'Id' in body && 'Prediction' in body
 
-        // 3. API Key validation (optional for legacy, recommended for new)
+        // 3. API Key validation
         const apiKey = request.headers.get('x-api-key')
 
-        // If NOT legacy format, require API key
-        // If legacy format, skip API key check for backward compatibility
         if (!isLegacy && !PredictionService.validateApiKey(apiKey)) {
-            return NextResponse.json(
-                { success: false, message: 'Unauthorized: Invalid API Key' },
-                { status: 401 }
-            )
-        }
-
-        // 4. Process based on format
-        let predictions: AIPredictionPayload[] = []
-
-        if (isLegacy) {
-            // Legacy Payload (Id, Date, Prediction as Base64)
-            console.log('📦 Legacy format detected - processing...')
-            const legacyPayload = body as LegacyPredictionPayload
-            predictions = PredictionService.parseLegacyPayload(legacyPayload)
+            status = 401
+            responseBody = { success: false, message: 'Unauthorized: Invalid API Key' }
         } else {
-            // New Payload (structured JSON)
-            predictions = [body as AIPredictionPayload]
+            // 4. Process Logic
+            let predictions: AIPredictionPayload[] = []
+
+            if (isLegacy) {
+                console.log('📦 Legacy format detected - processing...')
+                const legacyPayload = body as LegacyPredictionPayload
+                predictions = PredictionService.parseLegacyPayload(legacyPayload)
+            } else {
+                predictions = [body as AIPredictionPayload]
+            }
+
+            let successCount = 0
+            for (const p of predictions) {
+                const result = await PredictionService.ingest(p)
+                if (result.success) successCount++
+            }
+
+            console.log(`✅ Ingested ${successCount} predictions (${isLegacy ? 'legacy' : 'standard'} format)`)
+
+            responseBody = {
+                success: true,
+                message: 'Prediction received',
+                count: successCount,
+                type: isLegacy ? 'legacy' : 'standard'
+            }
         }
 
-        // 5. Ingest All
-        let successCount = 0
-        for (const p of predictions) {
-            const result = await PredictionService.ingest(p)
-            if (result.success) successCount++
-        }
+        // Log Success/Fail handled above
+        await LoggerService.logApiRequest({
+            endpoint: '/api/v1/ingest/predictions',
+            method: 'POST',
+            headers: Object.fromEntries(request.headers),
+            body: body,
+            response_status: status,
+            response_body: responseBody,
+            ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+            user_agent: request.headers.get('user-agent') || 'unknown'
+        })
 
-        console.log(`✅ Ingested ${successCount} predictions (${isLegacy ? 'legacy' : 'standard'} format)`)
-
-        // 6. Response
-        return NextResponse.json({
-            success: true,
-            message: 'Prediction received',
-            count: successCount,
-            type: isLegacy ? 'legacy' : 'standard'
-        }, { status: 200 })
+        return NextResponse.json(responseBody, { status })
 
     } catch (error) {
         console.error('API Error:', error)
-        return NextResponse.json(
-            { success: false, message: 'Invalid request body or internal error' },
-            { status: 400 }
-        )
+        status = 500
+        responseBody = { success: false, message: 'Internal Server Error' }
+
+        await LoggerService.logApiRequest({
+            endpoint: '/api/v1/ingest/predictions',
+            method: 'POST',
+            headers: Object.fromEntries(request.headers),
+            body: body,
+            response_status: status,
+            response_body: responseBody,
+            ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+            user_agent: request.headers.get('user-agent') || 'unknown'
+        })
+
+        return NextResponse.json(responseBody, { status })
     }
 }
