@@ -8,11 +8,13 @@ import { createClient } from '@supabase/supabase-js';
 import { SegmentType } from '@/lib/types/revenuecat';
 import { SEGMENT_FLOWS, getSegmentFlow } from '@/app/admin/members/detail/[id]/segment-flows';
 
-// Supabase admin client
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Supabase admin client setup
+function getSupabaseAdmin() {
+    return createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+}
 
 /**
  * GET /api/admin/members/[id]
@@ -23,6 +25,7 @@ export async function GET(
     props: { params: Promise<{ id: string }> }
 ) {
     const params = await props.params;
+    const supabaseAdmin = getSupabaseAdmin();
     try {
         const userId = params.id;
 
@@ -113,6 +116,7 @@ export async function PATCH(
     props: { params: Promise<{ id: string }> }
 ) {
     const params = await props.params;
+    const supabaseAdmin = getSupabaseAdmin();
     try {
         const userId = params.id;
         const body = await request.json();
@@ -176,6 +180,7 @@ export async function POST(
     props: { params: Promise<{ id: string }> }
 ) {
     const params = await props.params;
+    const supabaseAdmin = getSupabaseAdmin();
     try {
         const userId = params.id;
         const body = await request.json();

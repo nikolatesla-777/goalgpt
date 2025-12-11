@@ -12,11 +12,13 @@ import {
     SegmentChangeRequest
 } from '../types/revenuecat';
 
-// Supabase admin client (service role)
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Supabase admin client (service role) - Lazy initialization
+function getSupabaseAdmin() {
+    return createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+}
 
 // ============================================================================
 // MAIN PROCESSOR CLASS
@@ -441,7 +443,7 @@ export class WebhookProcessor {
     private static async saveEventLog(payload: RevenueCatWebhookEvent) {
         const event = payload.event;
 
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await getSupabaseAdmin()
             .from('revenuecat_events')
             .insert({
                 event_id: event.id,
@@ -477,7 +479,7 @@ export class WebhookProcessor {
      */
     private static async findOrCreateUser(appUserId: string, event: RevenueCatWebhookEvent['event']) {
         // Önce mevcut kullanıcıyı ara
-        let { data: user } = await supabaseAdmin
+        let { data: user } = await getSupabaseAdmin()
             .from('profiles')
             .select('*')
             .eq('id', appUserId)
@@ -487,7 +489,7 @@ export class WebhookProcessor {
             // Email ile de dene
             const email = event.subscriber_attributes?.['$email']?.value;
             if (email) {
-                const { data: userByEmail } = await supabaseAdmin
+                const { data: userByEmail } = await getSupabaseAdmin()
                     .from('profiles')
                     .select('*')
                     .eq('email', email)
@@ -511,7 +513,7 @@ export class WebhookProcessor {
      * Kullanıcı profilini güncelle
      */
     private static async updateUserProfile(userId: string, updates: Record<string, any>) {
-        const { error } = await supabaseAdmin
+        const { error } = await getSupabaseAdmin()
             .from('profiles')
             .update(updates)
             .eq('id', userId);
@@ -527,13 +529,13 @@ export class WebhookProcessor {
      */
     private static async logSegmentChange(request: SegmentChangeRequest) {
         // Önce mevcut segment'i al
-        const { data: user } = await supabaseAdmin
+        const { data: user } = await getSupabaseAdmin()
             .from('profiles')
             .select('current_segment')
             .eq('id', request.user_id)
             .single();
 
-        const { error } = await supabaseAdmin
+        const { error } = await getSupabaseAdmin()
             .from('user_segments')
             .insert({
                 user_id: request.user_id,
@@ -561,7 +563,7 @@ export class WebhookProcessor {
             event.type === 'RENEWAL' ? 'RENEWAL' :
                 event.is_trial_conversion ? 'TRIAL_CONVERSION' : 'INITIAL_PURCHASE';
 
-        await supabaseAdmin
+        await getSupabaseAdmin()
             .from('revenue_transactions')
             .insert({
                 user_id: userId,
@@ -578,7 +580,7 @@ export class WebhookProcessor {
      * Event'i işlenmiş olarak işaretle
      */
     private static async markEventProcessed(eventId: string) {
-        await supabaseAdmin
+        await getSupabaseAdmin()
             .from('revenuecat_events')
             .update({
                 processed: true,
@@ -591,7 +593,7 @@ export class WebhookProcessor {
      * Hata logla
      */
     private static async logError(eventId: string, errorMessage: string) {
-        await supabaseAdmin
+        await getSupabaseAdmin()
             .from('revenuecat_events')
             .update({
                 error_message: errorMessage,

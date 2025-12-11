@@ -1,6 +1,6 @@
 
 
-// import * as iap from 'node-iap'
+import * as iap from 'node-iap'
 import { createClient } from '@supabase/supabase-js'
 
 // Configure IAP
@@ -21,12 +21,6 @@ const googleConfig = {
 export async function validateReceipt(receipt: string, platform: 'ios' | 'android', productId?: string, packageName?: string) {
     console.log(`🧾 Validating Receipt for ${platform}...`)
 
-    // MOCK VALIDATION FOR BUILD DEBUGGING
-    // Vercel build is failing likely due to node-iap. Disabling for now.
-    console.warn('⚠️ MOCK VALIDATION ENABLED due to Vercel build issues with node-iap')
-    return { valid: true, data: { mock: true } }
-
-    /*
     // Create payment object based on platform
     let payment: any = {}
 
@@ -84,6 +78,5 @@ export async function validateReceipt(receipt: string, platform: 'ios' | 'androi
             return resolve({ valid: false, data: response })
         })
     })
-    */
 
 }

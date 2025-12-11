@@ -3,16 +3,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { validateReceipt } from '@/lib/payment-validator'
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+// const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+// const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    throw new Error('Missing Supabase Keys')
-}
+// if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+//     throw new Error('Missing Supabase Keys')
+// }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+// const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 export async function POST(req: NextRequest) {
+    const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+        // Return 500 instead of crashing process
+        return NextResponse.json({ error: 'Server Misconfiguration: Missing IDs' }, { status: 500 })
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
     try {
         const body = await req.json()
         const { user_id, receipt_data, platform, product_id, package_name } = body

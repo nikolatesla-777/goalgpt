@@ -7,17 +7,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { SegmentType } from '@/lib/types/revenuecat';
 
-// Supabase admin client
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Supabase admin client setup
+function getSupabaseAdmin() {
+    return createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+}
 
 /**
  * GET /api/admin/members
  * Tüm üyeleri segment filtreleri ile getir
  */
 export async function GET(request: NextRequest) {
+    const supabaseAdmin = getSupabaseAdmin();
     try {
         const { searchParams } = new URL(request.url);
 
@@ -149,6 +152,7 @@ export async function GET(request: NextRequest) {
  * Segment bazlı kullanıcı sayılarını getir
  */
 async function getSegmentCounts(): Promise<Record<string, number>> {
+    const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
         .from('profiles')
         .select('current_segment');
