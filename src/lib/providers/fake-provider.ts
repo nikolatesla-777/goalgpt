@@ -192,7 +192,34 @@ const CHART_DATA_CACHE: Record<string, ChartDataPoint[]> = {}
 // =============================================================================
 
 // In-memory prediction store
-const FAKE_PREDICTIONS: AIPredictionPayload[] = []
+const FAKE_PREDICTIONS: AIPredictionPayload[] = [
+    {
+        matchId: 'demo-1',
+        homeTeam: 'Galatasaray',
+        awayTeam: 'Fenerbahçe',
+        league: 'Super Lig',
+        prediction: 'KG VAR',
+        odds: 1.85,
+        confidence: 85,
+        analysis: 'Derbi atmosferi, iki takım da golcü.',
+        timestamp: Date.now() - 1000 * 60 * 5, // 5 mins ago
+        minute: '88',
+        botId: 'GoalGPT Pro'
+    },
+    {
+        matchId: 'demo-2',
+        homeTeam: 'Man City',
+        awayTeam: 'Liverpool',
+        league: 'Premier League',
+        prediction: 'MS 1',
+        odds: 2.10,
+        confidence: 90,
+        analysis: 'Home advantage and full squad.',
+        timestamp: Date.now() - 1000 * 60 * 15, // 15 mins ago
+        minute: '12',
+        botId: 'Premier Bot'
+    }
+]
 
 export class FakeProvider {
 
