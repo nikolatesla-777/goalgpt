@@ -24,3 +24,29 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Mobile sidebar close button - Raw CSS for Safari iOS compatibility */
+.mobile-close-btn {
+  display: flex !important;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  background-color: #ef4444;
+  color: white;
+  border-radius: 9999px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-close-btn:active {
+  background-color: #dc2626;
+}
+
+@media (min-width: 1024px) {
+  .mobile-close-btn {
+    display: none !important;
+  }
+}
