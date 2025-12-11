@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
+import { getPartner } from '../utils'
 import PartnerDashboardShell from './components/PartnerDashboardShell'
 
 export default async function PartnerLayout({
@@ -7,24 +8,10 @@ export default async function PartnerLayout({
 }: {
     children: React.ReactNode
 }) {
-    // 1. Auth Check
-    const supabase = await createClient()
-    const { data: { user }, error } = await supabase.auth.getUser()
+    // 1. Get Partner (handles auth & normalization)
+    const partner = await getPartner()
 
-    if (error || !user) {
-        redirect('/partner/login')
-    }
-
-    // 2. Partner Role Check
-    const { data: partner, error: partnerError } = await supabase
-        .from('partners')
-        .select('id, tier, profile:profiles(full_name, email)')
-        .eq('id', user.id)
-        .single()
-
-    if (partnerError || !partner) {
-        // Logged in but not a partner
-        await supabase.auth.signOut()
+    if (!partner) {
         redirect('/partner/login')
     }
 

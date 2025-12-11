@@ -20,5 +20,10 @@ export async function getPartner() {
         return null
     }
 
-    return partner
+    const profileData = Array.isArray(partner.profile) ? partner.profile[0] : partner.profile
+
+    return {
+        ...partner,
+        profile: profileData
+    } as any
 }

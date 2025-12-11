@@ -410,7 +410,7 @@ export default function MemberDetailPage() {
     }
 
     const isVip = member.vipStatus === 'VIP' || vipGranted
-    const isFreeUser = (member.segment === 'free_user' || member.segment === 'new_registration' || member.segment === 'churned') && !vipGranted
+    const isFreeUser = (member.segment === 'free' || member.segment === 'churned') && !vipGranted
     const hasSubscriptionHistory = subscriptionHistory.length > 0 || vipGranted
     const totalPayments = isVip ? Math.floor(1 + Math.random() * 8) : (vipGranted ? 1 : 0)
     const totalAmount = member.amount ? member.amount * totalPayments : 0
@@ -432,7 +432,7 @@ export default function MemberDetailPage() {
                 date: item.date,
                 timestamp: new Date(item.date).getTime(),
                 title: isPromo ? 'Promokod Kullanımı' : isManual ? 'Manuel Tanımlama' : item.product,
-                description: isPromo ? item.product : isManual ? item.note : `${item.amount > 0 ? `₺${item.amount}` : 'Ücretsiz'} - ${item.type === 'renewal' ? 'Yenileme' : item.type === 'payment_failed' ? 'Ödeme Hatası' : 'Satın Alma'}`,
+                description: isPromo ? item.product : isManual ? (item as any).note : `${item.amount > 0 ? `₺${item.amount}` : 'Ücretsiz'} - ${item.type === 'renewal' ? 'Yenileme' : item.type === 'payment_failed' ? 'Ödeme Hatası' : 'Satın Alma'}`,
                 type: isPromo ? 'promo' : 'store',
                 categoryLabel: isPromo ? 'Promokod' : isManual ? 'Yönetici' : 'Mağaza',
                 status: item.status as FootprintStatus,

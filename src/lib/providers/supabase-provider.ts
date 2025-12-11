@@ -126,21 +126,6 @@ export class SupabaseProvider implements IDataProvider {
     async getPredictions(limit: number = 50): Promise<AIPredictionPayload[]> {
         return [] // Placeholder
     }
-        await this.supabase
-    .from('ai_predictions')
-    .insert({
-        match_id: prediction.matchId,
-        home_team: prediction.homeTeam,
-        away_team: prediction.awayTeam,
-        leakue: prediction.league,
-        prediction: prediction.prediction,
-        odds: prediction.odds,
-        confidence: prediction.confidence,
-        analysis: prediction.analysis,
-        bot_id: prediction.botId,
-        created_at: new Date(prediction.timestamp).toISOString()
-    })
-    */
-throw new Error('SupabaseProvider not implemented. Use FakeProvider.')
-    }
+
 }
+

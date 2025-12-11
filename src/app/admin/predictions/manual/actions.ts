@@ -212,3 +212,40 @@ function mapStatus(status: TheSportsMatch['status']): 'live' | 'ht' | 'ft' {
         default: return 'ft'
     }
 }
+
+// ============================================================================
+// MANUAL PREDICTION ACTIONS
+// ============================================================================
+
+export interface ManualPrediction {
+    id: string
+    home_team_name: string
+    away_team_name: string
+    competition_name: string
+    match_date: string
+    prediction_type: string
+    prediction_odds: number
+    status: 'draft' | 'published' | 'finished'
+    result?: 'pending' | 'won' | 'lost' | 'void'
+    confidence: number
+    analysis: string
+    is_vip: boolean
+}
+
+export async function publishManualPrediction(id: string) {
+    // In a real app, this would update Supabase
+    console.log('[Mock Action] Publishing prediction:', id)
+    return { success: true }
+}
+
+export async function updateManualResult(id: string, result: 'won' | 'lost' | 'void') {
+    // In a real app, this would update Supabase
+    console.log('[Mock Action] Updating result:', id, result)
+    return { success: true }
+}
+
+export async function deleteManualPrediction(id: string) {
+    // In a real app, this would delete from Supabase
+    console.log('[Mock Action] Deleting prediction:', id)
+    return { success: true }
+}

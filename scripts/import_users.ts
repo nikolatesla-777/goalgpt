@@ -51,7 +51,8 @@ async function migrate() {
     let errorCount = 0
 
     // 3. Process Users Batch
-    for (const user of users) {
+    for (const row of users) {
+        const user = row as any;
         try {
             // A. Create Auth User
             // Note: We cannot migrate password hashes because Scrypt (Supabase) != PBKDF2 (Legacy).
@@ -60,7 +61,7 @@ async function migrate() {
             // The user MUST reset password on first login.
 
             const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-                email: user.email,
+                email: (user as any).email,
                 password: 'TempPassword123!', // User must reset
                 email_confirm: true,
                 user_metadata: {
@@ -109,7 +110,8 @@ async function migrate() {
                 // C. Match & Insert Subscriptions
                 const userSubs = subscriptions.filter((s: any) => s.customer_user_id === user.id)
 
-                for (const sub of userSubs) {
+                for (const rowSub of userSubs) {
+                    const sub = rowSub as any;
                     if (!sub.store_original_transaction_id) continue;
 
                     // Helper to map status
@@ -190,7 +192,8 @@ async function migrate() {
                         // C. Match & Insert Subscriptions (Idempotent check needed ideally, but insert usually fine if not duplicate PK)
                         const userSubs = subscriptions.filter((s: any) => s.customer_user_id === user.id)
 
-                        for (const sub of userSubs) {
+                        for (const rowSub of userSubs) {
+                            const sub = rowSub as any;
                             if (!sub.store_original_transaction_id) continue;
 
                             // Helper to map status

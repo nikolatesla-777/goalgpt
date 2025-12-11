@@ -56,11 +56,11 @@ export async function GET(request: NextRequest) {
         // Segment filter
         if (segment && segment !== 'all') {
             // Gelir getiren filter (revenue_members)
-            if (segment === 'revenue_members') {
+            if ((segment as string) === 'revenue_members') {
                 query = query.gt('ltv', 0);
             }
             // Oto yenileme filter
-            else if (segment === 'auto_renew') {
+            else if ((segment as string) === 'auto_renew') {
                 query = query.eq('auto_renew_status', true);
             }
             // Diğer segment filtreleri

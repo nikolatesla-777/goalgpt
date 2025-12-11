@@ -1,5 +1,5 @@
 
-import iap from 'node-iap'
+import * as iap from 'node-iap'
 import { createClient } from '@supabase/supabase-js'
 
 // Configure IAP
@@ -16,12 +16,7 @@ const googleConfig = {
     privateKey: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
 }
 
-// Initialize IAP
-iap.config({
-    test: process.env.NODE_ENV !== 'production',
-    verbose: true,
-    appleExcludeOldTransactions: true,
-})
+
 
 export async function validateReceipt(receipt: string, platform: 'ios' | 'android', productId?: string, packageName?: string) {
     console.log(`🧾 Validating Receipt for ${platform}...`)
@@ -51,7 +46,7 @@ export async function validateReceipt(receipt: string, platform: 'ios' | 'androi
     }
 
     return new Promise((resolve, reject) => {
-        iap.verifyPayment(platform, payment, (error, response) => {
+        iap.verifyPayment(platform, payment, (error: any, response: any) => {
             if (error) {
                 console.error(`❌ Receipt Validation Failed:`, error)
                 return resolve({ valid: false, error: error })
