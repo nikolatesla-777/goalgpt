@@ -27,7 +27,6 @@ import {
 } from 'lucide-react'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-    // Start closed on mobile, open on desktop
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
     const [expandedMenu, setExpandedMenu] = useState<string | null>('predictions')
     const [userEmail, setUserEmail] = useState<string | null>(null)
@@ -35,20 +34,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const pathname = usePathname()
     const router = useRouter()
 
-    // Set initial sidebar state based on screen size
+    // Set initial state ONLY ONCE on mount - no resize listener
     useEffect(() => {
-        const handleResize = () => {
-            if (window.innerWidth >= 1024) {
-                setIsSidebarOpen(true)
-            } else {
-                setIsSidebarOpen(false)
-            }
-        }
-        handleResize()
-        window.addEventListener('resize', handleResize)
-        return () => window.removeEventListener('resize', handleResize)
+        setIsSidebarOpen(window.innerWidth >= 1024)
     }, [])
 
+    // Close sidebar function
+    const closeSidebar = () => {
+        setIsSidebarOpen(false)
+    }
+
+    const openSidebar = () => {
+        setIsSidebarOpen(true)
+    }
     useEffect(() => {
         const fetchUser = async () => {
             const supabase = createClient()
@@ -119,11 +117,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return (
         <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
 
-            {/* Mobile Overlay - Higher z-index */}
+            {/* Mobile Overlay */}
             {isSidebarOpen && (
                 <div
-                    className="fixed inset-0 bg-black/60 z-[100] lg:hidden"
-                    onClick={() => setIsSidebarOpen(false)}
+                    className="fixed inset-0 bg-black/70 z-[100] lg:hidden"
+                    onClick={closeSidebar}
+                    onTouchStart={closeSidebar}
+                    role="button"
+                    aria-label="Menüyü kapat"
                 />
             )}
 
@@ -147,10 +148,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             </div>
                         </div>
                         <button
-                            onClick={() => setIsSidebarOpen(false)}
-                            className="p-2 -mr-2 text-slate-400 hover:text-slate-700 lg:hidden rounded-lg hover:bg-slate-100"
+                            type="button"
+                            onClick={closeSidebar}
+                            onTouchStart={closeSidebar}
+                            className="p-3 text-slate-600 hover:text-slate-900 active:bg-slate-100 lg:hidden rounded-xl touch-manipulation"
                         >
-                            <X size={24} />
+                            <X size={28} strokeWidth={2.5} />
                         </button>
                     </div>
 
