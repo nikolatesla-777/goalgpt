@@ -122,11 +122,65 @@ export class SupabaseProvider implements IDataProvider {
     }
 
     async addPrediction(prediction: AIPredictionPayload): Promise<void> {
-        throw new Error('Supabase prediction ingestion not implemented yet')
+        // Use service role key for server-side writes
+        const supabaseAdmin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+            process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+        )
+
+        const { error } = await supabaseAdmin
+            .from('predictions_raw')
+            .upsert({
+                external_id: prediction.matchId,
+                home_team_name: prediction.homeTeam,
+                away_team_name: prediction.awayTeam,
+                league_name: prediction.league,
+                prediction_type: prediction.prediction,
+                prediction_text: prediction.analysis || prediction.rawText || '',
+                confidence: prediction.confidence || 0,
+                match_minute: prediction.minute || null,
+                raw_payload: prediction,
+                status: 'pending',
+                received_at: new Date().toISOString()
+            }, {
+                onConflict: 'external_id',
+                ignoreDuplicates: false
+            })
+
+        if (error) {
+            console.error('Error inserting prediction:', error)
+            throw new Error(`Failed to insert prediction: ${error.message}`)
+        }
+
+        console.log(`✅ Prediction saved to Supabase: ${prediction.homeTeam} vs ${prediction.awayTeam}`)
     }
 
     async getPredictions(limit: number = 50): Promise<AIPredictionPayload[]> {
-        return [] // Placeholder
+        const { data, error } = await this.supabase
+            .from('predictions_raw')
+            .select('*')
+            .order('received_at', { ascending: false })
+            .limit(limit)
+
+        if (error) {
+            console.error('Error fetching predictions:', error)
+            return []
+        }
+
+        // Map database rows to AIPredictionPayload
+        return (data || []).map(row => ({
+            matchId: row.external_id || row.id,
+            homeTeam: row.home_team_name,
+            awayTeam: row.away_team_name,
+            league: row.league_name || 'Unknown',
+            prediction: row.prediction_type || '',
+            odds: 0,
+            confidence: row.confidence || 0,
+            analysis: row.prediction_text || '',
+            timestamp: new Date(row.received_at).getTime(),
+            minute: row.match_minute,
+            rawText: row.prediction_text
+        }))
     }
 
 }

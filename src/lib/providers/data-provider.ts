@@ -94,18 +94,40 @@ export interface IDataProvider {
 // =============================================================================
 
 /**
- * ⚠️ GEÇİŞ NOKTASI
+ * ⚠️ HYBRID MODE
  * 
- * Fake moddan gerçek DB'ye geçmek için:
- * 1. SupabaseProvider'ı implement et
- * 2. Aşağıdaki satırı değiştir:
- *    export const DataProvider = new SupabaseProvider()
+ * Predictions → Supabase (gerçek veritabanı)
+ * Diğer işlemler → FakeProvider (mock data)
+ * 
+ * Tam geçiş için SupabaseProvider'ın tüm metodlarını implement et.
  */
 import { FakeProvider } from './fake-provider'
-// import { SupabaseProvider } from './supabase-provider'
+import { SupabaseProvider } from './supabase-provider'
 
-// Active provider instance (TEK SATIR DEĞİŞİKLİĞİ ile geçiş)
-export const DataProvider: IDataProvider = new FakeProvider()
+// Create instances
+const fakeProvider = new FakeProvider()
+const supabaseProvider = new SupabaseProvider()
 
-// Future: Real DB
-// export const DataProvider: IDataProvider = new SupabaseProvider()
+// Hybrid Provider - Best of both worlds
+class HybridDataProvider implements IDataProvider {
+    // User operations - FakeProvider (mock)
+    getUsers = fakeProvider.getUsers.bind(fakeProvider)
+    getUserById = fakeProvider.getUserById.bind(fakeProvider)
+    updateUserSegment = fakeProvider.updateUserSegment.bind(fakeProvider)
+    getSegmentCounts = fakeProvider.getSegmentCounts.bind(fakeProvider)
+
+    // Metrics operations - FakeProvider (mock)
+    getMetrics = fakeProvider.getMetrics.bind(fakeProvider)
+    getChartData = fakeProvider.getChartData.bind(fakeProvider)
+    getMetricUsers = fakeProvider.getMetricUsers.bind(fakeProvider)
+
+    // Action operations - FakeProvider (mock)
+    logAction = fakeProvider.logAction.bind(fakeProvider)
+    getActionHistory = fakeProvider.getActionHistory.bind(fakeProvider)
+
+    // 🔥 PREDICTION OPERATIONS - SUPABASE (gerçek veritabanı!)
+    addPrediction = supabaseProvider.addPrediction.bind(supabaseProvider)
+    getPredictions = supabaseProvider.getPredictions.bind(supabaseProvider)
+}
+
+export const DataProvider: IDataProvider = new HybridDataProvider()
