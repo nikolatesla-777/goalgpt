@@ -1,7 +1,7 @@
-
 'use client'
 
-import { useFormState, useFormStatus } from 'react-dom'
+import { useActionState } from 'react'
+import { useFormStatus } from 'react-dom'
 import { loginAdmin } from './actions'
 import { Loader2, ArrowRight, ShieldCheck } from 'lucide-react'
 
@@ -25,8 +25,8 @@ function SubmitButton() {
 }
 
 export default function AdminLoginPage() {
-    // @ts-ignore
-    const [state, formAction] = useFormState(loginAdmin, null)
+    // React 19: useActionState instead of useFormState
+    const [state, formAction] = useActionState(loginAdmin, null)
 
     return (
         <div className="min-h-screen bg-black flex items-center justify-center p-4 font-sans">
@@ -36,7 +36,7 @@ export default function AdminLoginPage() {
                 <div className="absolute bottom-0 -right-4 w-96 h-96 bg-cyan-600/10 rounded-full blur-[100px]" />
             </div>
 
-            <div className="w-full max-w-md bg-white/5 border border-white/10 p-8 rounded-3xl relative backdrop-blur-xl animate-in fade-in zoom-in-95 duration-500">
+            <div className="w-full max-w-md bg-white/5 border border-white/10 p-8 rounded-3xl relative backdrop-blur-xl">
                 {/* Logo Area */}
                 <div className="text-center mb-8">
                     <div className="w-16 h-16 bg-gradient-to-tr from-emerald-500 to-teal-600 rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-xl shadow-emerald-900/30">
