@@ -105,25 +105,48 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         setExpandedMenu(expandedMenu === id ? null : id)
     }
 
+    // Close sidebar when navigating on mobile
+    const handleNavClick = () => {
+        if (window.innerWidth < 1024) {
+            setIsSidebarOpen(false)
+        }
+    }
+
     return (
         <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
 
+            {/* Mobile Overlay */}
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
             {/* Sidebar - Light Theme */}
             <aside className={`
-                fixed top-0 left-0 z-40 h-screen w-64 bg-white border-r border-slate-200 shadow-sm transition-transform duration-300 ease-in-out
+                fixed top-0 left-0 z-40 h-screen w-72 lg:w-64 bg-white border-r border-slate-200 shadow-lg lg:shadow-sm transition-transform duration-300 ease-in-out
                 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
                 lg:translate-x-0
             `}>
                 <div className="h-full flex flex-col">
-                    {/* Logo Area */}
-                    <div className="h-16 flex items-center px-6 border-b border-slate-100">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-200 mr-3">
-                            <span className="font-bold text-lg text-white">G</span>
+                    {/* Logo Area with Close Button on Mobile */}
+                    <div className="h-16 flex items-center justify-between px-4 lg:px-6 border-b border-slate-100">
+                        <div className="flex items-center">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-200 mr-3">
+                                <span className="font-bold text-lg text-white">G</span>
+                            </div>
+                            <div>
+                                <h1 className="font-bold text-slate-800 tracking-tight">GoalGPT</h1>
+                                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Admin Panel</span>
+                            </div>
                         </div>
-                        <div>
-                            <h1 className="font-bold text-slate-800 tracking-tight">GoalGPT</h1>
-                            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Admin Panel</span>
-                        </div>
+                        <button
+                            onClick={() => setIsSidebarOpen(false)}
+                            className="p-2 text-slate-400 hover:text-slate-700 lg:hidden"
+                        >
+                            <X size={20} />
+                        </button>
                     </div>
 
                     {/* Navigation */}
@@ -149,7 +172,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                             }
                                         `}
                                     >
-                                        <Link href={hasSubItems ? '#' : item.href} className="flex items-center gap-3 flex-1" onClick={(e) => hasSubItems && e.preventDefault()}>
+                                        <Link
+                                            href={hasSubItems ? '#' : item.href}
+                                            className="flex items-center gap-3 flex-1"
+                                            onClick={(e) => {
+                                                if (hasSubItems) {
+                                                    e.preventDefault()
+                                                } else {
+                                                    handleNavClick()
+                                                }
+                                            }}
+                                        >
                                             <item.icon size={18} className={`transition-colors ${isActive && !hasSubItems ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
                                             <span className="text-[13px]">{item.name}</span>
                                         </Link>
@@ -167,8 +200,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                                     <Link
                                                         key={sub.name}
                                                         href={sub.href}
+                                                        onClick={handleNavClick}
                                                         className={`
-                                                            flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ml-6
+                                                            flex items-center gap-2.5 px-3 py-2.5 lg:py-2 rounded-lg text-sm lg:text-xs font-medium transition-all ml-6
                                                             ${isSubActive
                                                                 ? 'bg-slate-100 text-slate-900'
                                                                 : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
@@ -207,7 +241,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </aside>
 
             {/* Main Content */}
-            <div className={`${isSidebarOpen ? 'lg:ml-64' : ''} transition-all duration-300`}>
+            <div className="lg:ml-64 transition-all duration-300">
 
                 {/* Header - Light Theme */}
                 <header className="h-16 bg-white/80 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-30 px-6 flex items-center justify-between">
@@ -242,7 +276,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </header>
 
                 {/* Page Content */}
-                <main className="p-6 bg-slate-50 min-h-[calc(100vh-4rem)]">
+                <main className="p-4 lg:p-6 bg-slate-50 min-h-[calc(100vh-4rem)]">
                     {children}
                 </main>
             </div>
