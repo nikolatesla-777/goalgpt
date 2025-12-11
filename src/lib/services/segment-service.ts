@@ -6,11 +6,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { SegmentType, RevenueCatEventType } from '../types/revenuecat';
 
-// Supabase admin client
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Supabase admin client setup
+function getSupabaseAdmin() {
+    return createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+}
 
 // ============================================================================
 // SEGMENT DEFINITIONS
@@ -309,7 +311,7 @@ export class SegmentService {
         metadata?: Record<string, any>
     ): Promise<void> {
         // Mevcut segment'i al
-        const { data: user } = await supabaseAdmin
+        const { data: user } = await getSupabaseAdmin()
             .from('profiles')
             .select('current_segment')
             .eq('id', userId)
@@ -324,7 +326,7 @@ export class SegmentService {
         }
 
         // Profile güncelle
-        await supabaseAdmin
+        await getSupabaseAdmin()
             .from('profiles')
             .update({
                 current_segment: newSegment,
@@ -333,7 +335,7 @@ export class SegmentService {
             .eq('id', userId);
 
         // Segment geçmişine ekle
-        await supabaseAdmin
+        await getSupabaseAdmin()
             .from('user_segments')
             .insert({
                 user_id: userId,
@@ -377,7 +379,7 @@ export class SegmentService {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        const { data: users, error } = await supabaseAdmin
+        const { data: users, error } = await getSupabaseAdmin()
             .from('profiles')
             .select('id')
             .eq('subscription_status', 'EXPIRED')
@@ -403,7 +405,7 @@ export class SegmentService {
      * Segment istatistiklerini getir
      */
     static async getSegmentStats(): Promise<Record<SegmentType, number>> {
-        const { data } = await supabaseAdmin
+        const { data } = await getSupabaseAdmin()
             .from('profiles')
             .select('current_segment');
 
