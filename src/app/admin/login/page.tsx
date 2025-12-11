@@ -1,9 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import { useActionState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { loginAdmin } from './actions'
-import { Loader2, ArrowRight, ShieldCheck } from 'lucide-react'
+import { Loader2, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react'
 
 // Submit Button Component
 function SubmitButton() {
@@ -25,8 +26,8 @@ function SubmitButton() {
 }
 
 export default function AdminLoginPage() {
-    // React 19: useActionState instead of useFormState
     const [state, formAction] = useActionState(loginAdmin, null)
+    const [showPassword, setShowPassword] = useState(false)
 
     return (
         <div className="min-h-screen bg-black flex items-center justify-center p-4 font-sans">
@@ -51,7 +52,7 @@ export default function AdminLoginPage() {
 
                 <form action={formAction} className="space-y-4">
                     {state?.error && (
-                        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center font-medium animate-in fade-in slide-in-from-top-2 flex items-center justify-center gap-2">
+                        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center font-medium flex items-center justify-center gap-2">
                             <ShieldCheck size={16} />
                             {state.error}
                         </div>
@@ -72,13 +73,22 @@ export default function AdminLoginPage() {
                         <div className="flex justify-between items-center ml-1">
                             <label className="text-xs font-bold text-slate-500 uppercase">Güvenlik Anahtarı (Şifre)</label>
                         </div>
-                        <input
-                            name="password"
-                            type="password"
-                            required
-                            placeholder="••••••••"
-                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500/50 transition-colors placeholder:text-slate-600"
-                        />
+                        <div className="relative">
+                            <input
+                                name="password"
+                                type={showPassword ? "text" : "password"}
+                                required
+                                placeholder="••••••••"
+                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 pr-12 text-white focus:outline-none focus:border-emerald-500/50 transition-colors placeholder:text-slate-600"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-400 transition-colors p-1"
+                            >
+                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="pt-2">
