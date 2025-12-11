@@ -168,13 +168,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         </div>
                         <button
                             type="button"
-                            onClick={() => {
-                                console.log('Close clicked')
-                                setIsSidebarOpen(false)
-                            }}
-                            className="w-12 h-12 flex items-center justify-center text-slate-600 hover:text-slate-900 active:bg-slate-100 lg:hidden rounded-xl"
+                            onClick={() => setIsSidebarOpen(false)}
+                            className="w-10 h-10 flex items-center justify-center bg-red-500 hover:bg-red-600 active:bg-red-700 text-white lg:hidden rounded-full shadow-lg"
+                            aria-label="Menüyü Kapat"
                         >
-                            <X size={32} strokeWidth={2} />
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
                         </button>
                     </div>
 
