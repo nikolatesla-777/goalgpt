@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
@@ -12,8 +11,6 @@ import {
     Settings,
     LogOut,
     Menu,
-    X,
-    Search,
     Activity,
     ChevronRight,
     Bot,
@@ -28,44 +25,13 @@ import {
 } from 'lucide-react'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-    const [isMobile, setIsMobile] = useState(true) // Assume mobile first
-    const [mounted, setMounted] = useState(false)
+    const [sidebarOpen, setSidebarOpen] = useState(false)
     const [expandedMenu, setExpandedMenu] = useState<string | null>('predictions')
     const [userEmail, setUserEmail] = useState<string | null>(null)
     const [userName, setUserName] = useState<string | null>(null)
     const pathname = usePathname()
     const router = useRouter()
 
-    // Mount check and mobile detection
-    useEffect(() => {
-        setMounted(true)
-        const checkMobile = window.innerWidth < 1024
-        setIsMobile(checkMobile)
-        setIsSidebarOpen(!checkMobile) // Open on desktop, closed on mobile
-    }, [])
-
-    // Lock body scroll when sidebar is open on mobile
-    useEffect(() => {
-        if (isSidebarOpen && isMobile) {
-            document.body.style.overflow = 'hidden'
-        } else {
-            document.body.style.overflow = ''
-        }
-        return () => { document.body.style.overflow = '' }
-    }, [isSidebarOpen, isMobile])
-
-    // Escape key to close
-    useEffect(() => {
-        const handleEscape = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setIsSidebarOpen(false)
-        }
-        window.addEventListener('keydown', handleEscape)
-        return () => window.removeEventListener('keydown', handleEscape)
-    }, [])
-
-    const closeSidebar = () => setIsSidebarOpen(false)
-    const openSidebar = () => setIsSidebarOpen(true)
     useEffect(() => {
         const fetchUser = async () => {
             const supabase = createClient()
@@ -127,209 +93,588 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         setExpandedMenu(expandedMenu === id ? null : id)
     }
 
-    const handleNavClick = () => {
-        if (window.innerWidth < 1024) {
-            setIsSidebarOpen(false)
-        }
-    }
+    const closeSidebar = () => setSidebarOpen(false)
 
     return (
-        <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
-
-            {/* Mobile Overlay - Rendered via Portal for reliable clicks */}
-            {mounted && isSidebarOpen && createPortal(
-                <div
-                    className="fixed inset-0 bg-black/70 z-[9998] lg:hidden"
-                    onClick={closeSidebar}
-                    style={{ touchAction: 'none' }}
-                />,
-                document.body
-            )}
-
-            {/* Sidebar */}
-            <aside
-                className={`
-                    fixed top-0 left-0 z-[9999] h-full w-[85vw] max-w-[320px] bg-white shadow-2xl lg:shadow-sm transition-transform duration-300 ease-in-out
-                    lg:w-64 lg:border-r lg:border-slate-200 lg:z-40
-                    ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-                    lg:translate-x-0
-                `}
-                style={{ touchAction: 'pan-y' }}
-            >
-                <div className="h-full flex flex-col overflow-hidden">
-                    {/* Logo Area */}
-                    <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100 flex-shrink-0">
-                        <div className="flex items-center">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-200 mr-3">
-                                <span className="font-bold text-lg text-white">G</span>
-                            </div>
-                            <div>
-                                <h1 className="font-bold text-slate-800 tracking-tight">GoalGPT</h1>
-                                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Admin Panel</span>
-                            </div>
-                        </div>
-                        {/* Close button - Raw CSS class for Safari iOS compatibility */}
-                        <button
-                            type="button"
-                            onClick={() => setIsSidebarOpen(false)}
-                            className="mobile-close-btn"
-                            aria-label="Menüyü Kapat"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg>
-                        </button>
-                    </div>
-
-                    {/* Navigation - Scrollable */}
-                    <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-                        <div className="px-3 mb-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                            Yönetim
-                        </div>
-                        {navigation.map((item: any) => {
-                            const isActive = pathname === item.href
-                            const hasSubItems = item.subItems && item.subItems.length > 0
-                            const isExpanded = expandedMenu === item.id
-
-                            return (
-                                <div key={item.name + item.id}>
-                                    <div
-                                        onClick={() => hasSubItems ? toggleSubMenu(item.id) : null}
-                                        className={`
-                                            flex items-center justify-between px-3 py-3 rounded-xl text-sm font-medium transition-all group cursor-pointer
-                                            ${isActive && !hasSubItems
-                                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                                            }
-                                        `}
-                                    >
-                                        <Link
-                                            href={hasSubItems ? '#' : item.href}
-                                            className="flex items-center gap-3 flex-1"
-                                            onClick={(e) => {
-                                                if (hasSubItems) {
-                                                    e.preventDefault()
-                                                } else {
-                                                    handleNavClick()
-                                                }
-                                            }}
-                                        >
-                                            <item.icon size={20} className={`transition-colors ${isActive && !hasSubItems ? 'text-emerald-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                                            <span className="text-[14px]">{item.name}</span>
-                                        </Link>
-                                        {hasSubItems && (
-                                            <ChevronRight size={16} className={`text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-90' : ''}`} />
-                                        )}
-                                    </div>
-
-                                    {hasSubItems && (
-                                        <div className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-96 opacity-100 mt-1 space-y-1' : 'max-h-0 opacity-0'}`}>
-                                            {item.subItems.map((sub: any) => {
-                                                const isSubActive = pathname === sub.href
-                                                return (
-                                                    <Link
-                                                        key={sub.name + sub.href}
-                                                        href={sub.href}
-                                                        onClick={handleNavClick}
-                                                        className={`
-                                                            flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all ml-6
-                                                            ${isSubActive
-                                                                ? 'bg-slate-100 text-slate-900'
-                                                                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-                                                            }
-                                                        `}
-                                                    >
-                                                        <sub.icon size={16} className={isSubActive ? 'text-emerald-500' : 'text-slate-400'} />
-                                                        {sub.name}
-                                                    </Link>
-                                                )
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                            )
-                        })}
-                    </nav>
-
-                    {/* User Profile / Logout */}
-                    <div className="p-3 border-t border-slate-100 flex-shrink-0">
-                        <button
-                            onClick={handleLogout}
-                            className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-red-50 transition-colors group"
-                        >
-                            <div className="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-600 uppercase font-bold text-sm flex-shrink-0">
-                                {userName ? userName.charAt(0) : 'A'}
-                            </div>
-                            <div className="text-left flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-slate-700 truncate">{userName || 'Admin'}</p>
-                                <p className="text-xs text-slate-400 truncate">{userEmail || 'Yükleniyor...'}</p>
-                            </div>
-                            <LogOut size={18} className="text-slate-400 group-hover:text-red-500 transition-colors flex-shrink-0" />
-                        </button>
-                    </div>
-                </div>
+        <div className="admin-layout">
+            {/* Desktop Sidebar - Always visible on lg+ */}
+            <aside className="admin-sidebar-desktop">
+                <SidebarContent
+                    navigation={navigation}
+                    pathname={pathname}
+                    expandedMenu={expandedMenu}
+                    toggleSubMenu={toggleSubMenu}
+                    userName={userName}
+                    userEmail={userEmail}
+                    handleLogout={handleLogout}
+                    onNavClick={() => { }}
+                />
             </aside>
 
-            {/* Main Content Area */}
-            <div className="lg:ml-64 min-h-screen flex flex-col">
-
-                {/* Header - Fixed on mobile */}
-                <header className="h-14 lg:h-16 bg-white border-b border-slate-200 sticky top-0 z-20 px-4 lg:px-6 flex items-center justify-between flex-shrink-0">
-                    <div className="flex items-center gap-3">
-                        {/* Hamburger Menu - Only on mobile */}
+            {/* Mobile Sidebar */}
+            {sidebarOpen && (
+                <div className="admin-mobile-overlay" onClick={closeSidebar}>
+                    <aside
+                        className="admin-sidebar-mobile"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Mobile Close Button */}
                         <button
-                            onClick={() => setIsSidebarOpen(true)}
-                            className="p-2 -ml-2 text-slate-600 hover:text-slate-900 lg:hidden rounded-lg hover:bg-slate-100"
+                            className="admin-close-btn"
+                            onClick={closeSidebar}
+                            type="button"
+                        >
+                            ✕
+                        </button>
+                        <SidebarContent
+                            navigation={navigation}
+                            pathname={pathname}
+                            expandedMenu={expandedMenu}
+                            toggleSubMenu={toggleSubMenu}
+                            userName={userName}
+                            userEmail={userEmail}
+                            handleLogout={handleLogout}
+                            onNavClick={closeSidebar}
+                        />
+                    </aside>
+                </div>
+            )}
+
+            {/* Main Content */}
+            <div className="admin-main">
+                {/* Header */}
+                <header className="admin-header">
+                    <div className="admin-header-left">
+                        {/* Mobile Menu Button */}
+                        <button
+                            className="admin-menu-btn"
+                            onClick={() => setSidebarOpen(true)}
+                            type="button"
                         >
                             <Menu size={24} />
                         </button>
-
-                        {/* Mobile Logo */}
-                        <div className="flex items-center lg:hidden">
-                            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center mr-2">
-                                <span className="font-bold text-sm text-white">G</span>
-                            </div>
-                            <span className="font-bold text-slate-800">GoalGPT</span>
-                        </div>
-
-                        {/* Desktop Status */}
-                        <div className="hidden lg:flex items-center gap-2 text-sm text-slate-500">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                            <span>Sistem:</span>
-                            <span className="text-emerald-600 font-semibold">Normal</span>
+                        <div className="admin-logo-mobile">
+                            <div className="admin-logo-icon">G</div>
+                            <span>GoalGPT</span>
                         </div>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                        {/* Search - Desktop only */}
-                        <div className="relative hidden lg:block">
-                            <input
-                                type="text"
-                                placeholder="Arama..."
-                                className="w-48 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 pl-10 text-sm text-slate-700 focus:outline-none focus:border-emerald-400 transition-all placeholder:text-slate-400"
-                            />
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        </div>
-
-                        {/* Home Button */}
-                        <Link
-                            href="/"
-                            className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-medium text-slate-600 transition-colors"
-                        >
-                            <Home size={16} />
-                            <span className="hidden sm:inline">Ana Sayfa</span>
-                        </Link>
-                    </div>
+                    <Link href="/" className="admin-home-btn">
+                        <Home size={16} />
+                        <span className="admin-home-text">Ana Sayfa</span>
+                    </Link>
                 </header>
 
                 {/* Page Content */}
-                <main className="flex-1 p-4 lg:p-6 bg-slate-50">
+                <main className="admin-content">
                     {children}
                 </main>
             </div>
 
+            <style jsx global>{`
+                .admin-layout {
+                    min-height: 100vh;
+                    background: #f8fafc;
+                }
+
+                /* Desktop Sidebar */
+                .admin-sidebar-desktop {
+                    display: none;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 256px;
+                    height: 100vh;
+                    background: white;
+                    border-right: 1px solid #e2e8f0;
+                    overflow-y: auto;
+                    z-index: 40;
+                }
+
+                @media (min-width: 1024px) {
+                    .admin-sidebar-desktop {
+                        display: block;
+                    }
+                }
+
+                /* Mobile Overlay */
+                .admin-mobile-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.6);
+                    z-index: 9999;
+                }
+
+                /* Mobile Sidebar */
+                .admin-sidebar-mobile {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 85%;
+                    max-width: 320px;
+                    height: 100%;
+                    background: white;
+                    overflow-y: auto;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                }
+
+                /* Close Button */
+                .admin-close-btn {
+                    position: absolute;
+                    top: 12px;
+                    right: 12px;
+                    width: 40px;
+                    height: 40px;
+                    background: #ef4444;
+                    color: white;
+                    border: none;
+                    border-radius: 50%;
+                    font-size: 20px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10;
+                    -webkit-tap-highlight-color: transparent;
+                }
+
+                .admin-close-btn:active {
+                    background: #dc2626;
+                }
+
+                @media (min-width: 1024px) {
+                    .admin-mobile-overlay {
+                        display: none;
+                    }
+                }
+
+                /* Main Content */
+                .admin-main {
+                    min-height: 100vh;
+                    display: flex;
+                    flex-direction: column;
+                }
+
+                @media (min-width: 1024px) {
+                    .admin-main {
+                        margin-left: 256px;
+                    }
+                }
+
+                /* Header */
+                .admin-header {
+                    height: 56px;
+                    background: white;
+                    border-bottom: 1px solid #e2e8f0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 0 16px;
+                    position: sticky;
+                    top: 0;
+                    z-index: 30;
+                }
+
+                @media (min-width: 1024px) {
+                    .admin-header {
+                        height: 64px;
+                        padding: 0 24px;
+                    }
+                }
+
+                .admin-header-left {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                }
+
+                .admin-menu-btn {
+                    padding: 8px;
+                    background: transparent;
+                    border: none;
+                    color: #475569;
+                    cursor: pointer;
+                    border-radius: 8px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    -webkit-tap-highlight-color: transparent;
+                }
+
+                .admin-menu-btn:active {
+                    background: #f1f5f9;
+                }
+
+                @media (min-width: 1024px) {
+                    .admin-menu-btn {
+                        display: none;
+                    }
+                }
+
+                .admin-logo-mobile {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+
+                @media (min-width: 1024px) {
+                    .admin-logo-mobile {
+                        display: none;
+                    }
+                }
+
+                .admin-logo-icon {
+                    width: 32px;
+                    height: 32px;
+                    background: linear-gradient(135deg, #10b981, #14b8a6);
+                    border-radius: 8px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-weight: bold;
+                    font-size: 14px;
+                }
+
+                .admin-logo-mobile span {
+                    font-weight: 700;
+                    color: #1e293b;
+                }
+
+                .admin-home-btn {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 8px 12px;
+                    background: #f1f5f9;
+                    border-radius: 8px;
+                    color: #475569;
+                    text-decoration: none;
+                    font-size: 14px;
+                    font-weight: 500;
+                }
+
+                .admin-home-text {
+                    display: none;
+                }
+
+                @media (min-width: 640px) {
+                    .admin-home-text {
+                        display: inline;
+                    }
+                }
+
+                /* Content */
+                .admin-content {
+                    flex: 1;
+                    padding: 16px;
+                    background: #f8fafc;
+                }
+
+                @media (min-width: 1024px) {
+                    .admin-content {
+                        padding: 24px;
+                    }
+                }
+
+                /* Sidebar Content Styles */
+                .sidebar-header {
+                    height: 64px;
+                    display: flex;
+                    align-items: center;
+                    padding: 0 16px;
+                    border-bottom: 1px solid #f1f5f9;
+                }
+
+                .sidebar-logo {
+                    width: 40px;
+                    height: 40px;
+                    background: linear-gradient(135deg, #10b981, #14b8a6);
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-weight: bold;
+                    font-size: 18px;
+                    margin-right: 12px;
+                    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+                }
+
+                .sidebar-title h1 {
+                    font-weight: 700;
+                    color: #1e293b;
+                    margin: 0;
+                    font-size: 16px;
+                }
+
+                .sidebar-title span {
+                    font-size: 10px;
+                    font-weight: 700;
+                    color: #10b981;
+                    text-transform: uppercase;
+                    letter-spacing: 0.1em;
+                }
+
+                .sidebar-nav {
+                    flex: 1;
+                    padding: 16px 12px;
+                    overflow-y: auto;
+                }
+
+                .sidebar-section-title {
+                    font-size: 11px;
+                    font-weight: 700;
+                    color: #94a3b8;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                    padding: 0 12px;
+                    margin-bottom: 12px;
+                }
+
+                .sidebar-nav-item {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 12px;
+                    border-radius: 12px;
+                    cursor: pointer;
+                    margin-bottom: 4px;
+                    transition: background 0.15s;
+                }
+
+                .sidebar-nav-item:hover {
+                    background: #f8fafc;
+                }
+
+                .sidebar-nav-item.active {
+                    background: #ecfdf5;
+                    border: 1px solid #a7f3d0;
+                }
+
+                .sidebar-nav-link {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    text-decoration: none;
+                    color: #475569;
+                    font-size: 14px;
+                    font-weight: 500;
+                    flex: 1;
+                }
+
+                .sidebar-nav-item.active .sidebar-nav-link {
+                    color: #047857;
+                }
+
+                .sidebar-subnav {
+                    overflow: hidden;
+                    transition: max-height 0.3s ease;
+                }
+
+                .sidebar-subnav-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 10px 12px;
+                    margin-left: 24px;
+                    border-radius: 8px;
+                    text-decoration: none;
+                    color: #64748b;
+                    font-size: 13px;
+                    font-weight: 500;
+                    transition: background 0.15s;
+                }
+
+                .sidebar-subnav-item:hover {
+                    background: #f8fafc;
+                }
+
+                .sidebar-subnav-item.active {
+                    background: #f1f5f9;
+                    color: #1e293b;
+                }
+
+                .sidebar-footer {
+                    padding: 12px;
+                    border-top: 1px solid #f1f5f9;
+                }
+
+                .sidebar-user {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    padding: 12px;
+                    border-radius: 12px;
+                    cursor: pointer;
+                    transition: background 0.15s;
+                    background: transparent;
+                    border: none;
+                    width: 100%;
+                    text-align: left;
+                }
+
+                .sidebar-user:hover {
+                    background: #fef2f2;
+                }
+
+                .sidebar-avatar {
+                    width: 40px;
+                    height: 40px;
+                    background: #d1fae5;
+                    border: 1px solid #a7f3d0;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: #047857;
+                    font-weight: 700;
+                    font-size: 14px;
+                    text-transform: uppercase;
+                    flex-shrink: 0;
+                }
+
+                .sidebar-user-info {
+                    flex: 1;
+                    min-width: 0;
+                }
+
+                .sidebar-user-name {
+                    font-size: 14px;
+                    font-weight: 600;
+                    color: #1e293b;
+                    margin: 0;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+
+                .sidebar-user-email {
+                    font-size: 12px;
+                    color: #94a3b8;
+                    margin: 0;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+            `}</style>
         </div>
     )
 }
 
+// Sidebar Content Component
+function SidebarContent({
+    navigation,
+    pathname,
+    expandedMenu,
+    toggleSubMenu,
+    userName,
+    userEmail,
+    handleLogout,
+    onNavClick
+}: {
+    navigation: any[]
+    pathname: string
+    expandedMenu: string | null
+    toggleSubMenu: (id: string) => void
+    userName: string | null
+    userEmail: string | null
+    handleLogout: () => void
+    onNavClick: () => void
+}) {
+    return (
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Header */}
+            <div className="sidebar-header">
+                <div className="sidebar-logo">G</div>
+                <div className="sidebar-title">
+                    <h1>GoalGPT</h1>
+                    <span>Admin Panel</span>
+                </div>
+            </div>
+
+            {/* Navigation */}
+            <nav className="sidebar-nav">
+                <div className="sidebar-section-title">Yönetim</div>
+                {navigation.map((item: any) => {
+                    const isActive = pathname === item.href
+                    const hasSubItems = item.subItems && item.subItems.length > 0
+                    const isExpanded = expandedMenu === item.id
+
+                    return (
+                        <div key={item.name + (item.id || '')}>
+                            <div
+                                className={`sidebar-nav-item ${isActive && !hasSubItems ? 'active' : ''}`}
+                                onClick={() => hasSubItems ? toggleSubMenu(item.id) : null}
+                            >
+                                <Link
+                                    href={hasSubItems ? '#' : item.href}
+                                    className="sidebar-nav-link"
+                                    onClick={(e) => {
+                                        if (hasSubItems) {
+                                            e.preventDefault()
+                                        } else {
+                                            onNavClick()
+                                        }
+                                    }}
+                                >
+                                    <item.icon size={20} color={isActive && !hasSubItems ? '#047857' : '#94a3b8'} />
+                                    {item.name}
+                                </Link>
+                                {hasSubItems && (
+                                    <ChevronRight
+                                        size={16}
+                                        color="#94a3b8"
+                                        style={{
+                                            transform: isExpanded ? 'rotate(90deg)' : 'none',
+                                            transition: 'transform 0.2s'
+                                        }}
+                                    />
+                                )}
+                            </div>
+
+                            {hasSubItems && (
+                                <div
+                                    className="sidebar-subnav"
+                                    style={{ maxHeight: isExpanded ? '400px' : '0px' }}
+                                >
+                                    {item.subItems.map((sub: any) => {
+                                        const isSubActive = pathname === sub.href
+                                        return (
+                                            <Link
+                                                key={sub.name + sub.href}
+                                                href={sub.href}
+                                                className={`sidebar-subnav-item ${isSubActive ? 'active' : ''}`}
+                                                onClick={onNavClick}
+                                            >
+                                                <sub.icon size={16} color={isSubActive ? '#10b981' : '#94a3b8'} />
+                                                {sub.name}
+                                            </Link>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )
+                })}
+            </nav>
+
+            {/* User Footer */}
+            <div className="sidebar-footer">
+                <button className="sidebar-user" onClick={handleLogout}>
+                    <div className="sidebar-avatar">
+                        {userName ? userName.charAt(0) : 'A'}
+                    </div>
+                    <div className="sidebar-user-info">
+                        <p className="sidebar-user-name">{userName || 'Admin'}</p>
+                        <p className="sidebar-user-email">{userEmail || 'Yükleniyor...'}</p>
+                    </div>
+                    <LogOut size={18} color="#94a3b8" />
+                </button>
+            </div>
+        </div>
+    )
+}
