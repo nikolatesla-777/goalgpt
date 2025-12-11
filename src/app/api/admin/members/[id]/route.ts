@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { SegmentType } from '@/lib/types/revenuecat';
-import { SEGMENT_FLOWS, getSegmentFlow } from '@/app/admin/members/detail/[id]/segment-flows';
+import { SEGMENT_FLOWS, getSegmentFlow } from '@/app/admin/(dashboard)/members/detail/[id]/segment-flows';
 
 // Supabase admin client setup
 function getSupabaseAdmin() {
