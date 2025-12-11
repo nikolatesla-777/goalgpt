@@ -97,6 +97,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     return (
         <div className="admin-layout">
+            {/* VERSION INDICATOR - Remove after debugging */}
+            <div style={{
+                position: 'fixed',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                background: '#ef4444',
+                color: 'white',
+                padding: '8px',
+                textAlign: 'center',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                zIndex: 99999
+            }}>
+                V7-NATIVE | {new Date().toLocaleTimeString('tr-TR')} | sidebarOpen: {sidebarOpen ? 'TRUE' : 'FALSE'}
+            </div>
             {/* Desktop Sidebar - Always visible on lg+ */}
             <aside className="admin-sidebar-desktop">
                 <SidebarContent
