@@ -27,10 +27,12 @@ import type { IDataProvider } from './data-provider'
  */
 
 export class SupabaseProvider implements IDataProvider {
-    private supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-    )
+    private get supabase() {
+        return createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+        )
+    }
 
     async getUsers(filters: UserFilters): Promise<PaginatedResult<User>> {
         // TODO: Implement Supabase query
