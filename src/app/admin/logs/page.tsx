@@ -72,20 +72,20 @@ export default function LogsPage() {
                         <div key={log.id} className="bg-[#1C1C1E] border border-white/10 rounded-xl overflow-hidden">
                             <div
                                 onClick={() => toggleExpand(log.id)}
-                                className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"
+                                className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors gap-4"
                             >
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-2 h-2 rounded-full ${log.response_status >= 200 && log.response_status < 300 ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                                    <span className="font-mono text-sm text-yellow-500">{log.method}</span>
-                                    <span className="font-mono text-sm text-gray-300">{log.endpoint}</span>
-                                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${log.response_status >= 200 && log.response_status < 300
+                                <div className="flex items-center gap-4 min-w-0 flex-1">
+                                    <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${log.response_status >= 200 && log.response_status < 300 ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                    <span className="font-mono text-sm text-yellow-500 w-12 flex-shrink-0">{log.method}</span>
+                                    <span className="font-mono text-sm text-gray-300 truncate" title={log.endpoint}>{log.endpoint}</span>
+                                    <span className={`px-2 py-0.5 rounded text-xs font-bold flex-shrink-0 ${log.response_status >= 200 && log.response_status < 300
                                         ? 'bg-emerald-500/20 text-emerald-400'
                                         : 'bg-red-500/20 text-red-400'
                                         }`}>
                                         {log.response_status}
                                     </span>
                                 </div>
-                                <div className="text-sm text-gray-500">
+                                <div className="text-sm text-gray-500 font-mono whitespace-nowrap flex-shrink-0 w-40 text-right">
                                     {formatInTimeZone(new Date(log.created_at), 'Europe/Istanbul', 'd MMM HH:mm:ss', { locale: tr })} (TSİ)
                                 </div>
                             </div>
