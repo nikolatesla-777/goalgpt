@@ -44,6 +44,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         fetchUser()
     }, [])
 
+    // Scroll Lock when sidebar is open
+    useEffect(() => {
+        if (sidebarOpen) {
+            document.body.style.overflow = 'hidden'
+        } else {
+            document.body.style.overflow = ''
+        }
+        return () => { document.body.style.overflow = '' }
+    }, [sidebarOpen])
+
     const handleLogout = async () => {
         const supabase = createClient()
         await supabase.auth.signOut()
@@ -97,22 +107,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     return (
         <div className="admin-layout">
-            {/* VERSION INDICATOR - Remove after debugging */}
-            <div style={{
-                position: 'fixed',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                background: '#ef4444',
-                color: 'white',
-                padding: '8px',
-                textAlign: 'center',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                zIndex: 99999
-            }}>
-                V7-NATIVE | {new Date().toLocaleTimeString('tr-TR')} | sidebarOpen: {sidebarOpen ? 'TRUE' : 'FALSE'}
-            </div>
+
             {/* Desktop Sidebar - Always visible on lg+ */}
             <aside className="admin-sidebar-desktop">
                 <SidebarContent
@@ -127,34 +122,38 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 />
             </aside>
 
-            {/* Mobile Sidebar */}
-            {sidebarOpen && (
-                <div className="admin-mobile-overlay" onClick={closeSidebar}>
-                    <aside
-                        className="admin-sidebar-mobile"
-                        onClick={(e) => e.stopPropagation()}
+
+            {/* Mobile Sidebar - With Transitions */}
+            <div
+                className={`admin-mobile-overlay ${sidebarOpen ? 'is-open' : ''}`}
+                onClick={closeSidebar}
+                aria-hidden={!sidebarOpen}
+            >
+                <div
+                    className={`admin-sidebar-mobile ${sidebarOpen ? 'is-open' : ''}`}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {/* Mobile Close Button */}
+                    <button
+                        className="admin-close-btn"
+                        onClick={closeSidebar}
+                        type="button"
                     >
-                        {/* Mobile Close Button */}
-                        <button
-                            className="admin-close-btn"
-                            onClick={closeSidebar}
-                            type="button"
-                        >
-                            ✕
-                        </button>
-                        <SidebarContent
-                            navigation={navigation}
-                            pathname={pathname}
-                            expandedMenu={expandedMenu}
-                            toggleSubMenu={toggleSubMenu}
-                            userName={userName}
-                            userEmail={userEmail}
-                            handleLogout={handleLogout}
-                            onNavClick={closeSidebar}
-                        />
-                    </aside>
+                        ✕
+                    </button>
+                    <SidebarContent
+                        navigation={navigation}
+                        pathname={pathname}
+                        expandedMenu={expandedMenu}
+                        toggleSubMenu={toggleSubMenu}
+                        userName={userName}
+                        userEmail={userEmail}
+                        handleLogout={handleLogout}
+                        onNavClick={closeSidebar}
+                    />
                 </div>
-            )}
+            </div>
+
 
             {/* Main Content */}
             <div className="admin-main">
@@ -220,7 +219,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     right: 0;
                     bottom: 0;
                     background: rgba(0, 0, 0, 0.6);
+                    backdrop-filter: blur(4px);
                     z-index: 9999;
+                    opacity: 0;
+                    pointer-events: none;
+                    transition: opacity 0.3s ease-out;
+                }
+                
+                .admin-mobile-overlay.is-open {
+                    opacity: 1;
+                    pointer-events: auto;
                 }
 
                 /* Mobile Sidebar */
@@ -234,6 +242,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     background: white;
                     overflow-y: auto;
                     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                    transform: translateX(-100%);
+                    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                }
+                
+                .admin-sidebar-mobile.is-open {
+                    transform: translateX(0);
                 }
 
                 /* Close Button */
