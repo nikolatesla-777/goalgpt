@@ -19,6 +19,9 @@ import {
     X
 } from 'lucide-react'
 import { getManualPredictions, ManualPrediction, deletePrediction as deleteFromStore, updatePredictionResult, toggleVipStatus } from './prediction-store'
+import { createClient } from '@/utils/supabase/client'
+import { format } from 'date-fns'
+import { tr } from 'date-fns/locale'
 
 // Prediction type with VIP status
 interface Prediction {
@@ -41,297 +44,7 @@ interface Prediction {
     isVip: boolean
 }
 
-const initialPredictions: Prediction[] = [
-    // LIVE matches
-    {
-        id: 'live1',
-        date: '10.12.2025',
-        time: '09:50',
-        botName: 'ALERT: D',
-        league: 'Premier League',
-        leagueFlag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-        homeTeam: 'Arsenal',
-        awayTeam: 'Chelsea',
-        homeScore: 2,
-        awayScore: 1,
-        matchStatus: 'live',
-        minute: 67,
-        predictionMinute: '55\'',
-        predictionScore: '1 - 0',
-        prediction: '+1 Gol - (2.5 ÜST)',
-        result: 'live_won',
-        isVip: true
-    },
-    {
-        id: 'live2',
-        date: '10.12.2025',
-        time: '09:45',
-        botName: 'Alert System',
-        league: 'La Liga',
-        leagueFlag: '🇪🇸',
-        homeTeam: 'Barcelona',
-        awayTeam: 'Real Madrid',
-        homeScore: 2,
-        awayScore: 2,
-        matchStatus: 'ht',
-        minute: 45,
-        predictionMinute: '38\'',
-        predictionScore: '1 - 1',
-        prediction: 'IY 2.5 ÜST',
-        result: 'live_won',
-        isVip: true
-    },
-    {
-        id: 'live3',
-        date: '10.12.2025',
-        time: '09:30',
-        botName: 'AlertCode: 17',
-        league: 'Bundesliga',
-        leagueFlag: '🇩🇪',
-        homeTeam: 'Bayern Munich',
-        awayTeam: 'Dortmund',
-        homeScore: 3,
-        awayScore: 1,
-        matchStatus: 'live',
-        minute: 78,
-        predictionMinute: '62\'',
-        predictionScore: '2 - 1',
-        prediction: '+1 Gol',
-        result: 'live_won',
-        isVip: false // FREE example
-    },
-    {
-        id: 'live4',
-        date: '10.12.2025',
-        time: '09:20',
-        botName: 'Alert Code: 2',
-        league: 'Serie A',
-        leagueFlag: '🇮🇹',
-        homeTeam: 'AC Milan',
-        awayTeam: 'Inter',
-        homeScore: 0,
-        awayScore: 0,
-        matchStatus: 'live',
-        minute: 35,
-        predictionMinute: '28\'',
-        predictionScore: '0 - 0',
-        prediction: '+1 Gol - (0.5 ÜST)',
-        result: 'pending',
-        isVip: true
-    },
-    // TEST: FT maç ama pending kalmış - manuel sonuçlandırma testi için
-    {
-        id: 'test_pending',
-        date: '10.12.2025',
-        time: '06:00',
-        botName: 'Alert System',
-        league: 'MLS',
-        leagueFlag: '🇺🇸',
-        homeTeam: 'LA Galaxy',
-        awayTeam: 'LAFC',
-        homeScore: 3,
-        awayScore: 2,
-        matchStatus: 'ft', // Maç bitti
-        minute: 90,
-        predictionMinute: '55\'',
-        predictionScore: '1 - 1',
-        prediction: '+2 Gol - (3.5 ÜST)', // Tahmin tutmuş! 3+2=5 gol var
-        result: 'pending', // Ama sistem sonuçlandırmamış
-        isVip: true
-    },
-
-    // Finished matches
-    {
-        id: '1',
-        date: '10.12.2025',
-        time: '03:26',
-        botName: 'Alert System',
-        league: 'Bolivian Primera Division',
-        leagueFlag: '🇧🇴',
-        homeTeam: 'Jorge Wilstermann',
-        awayTeam: 'Gualberto Villarroel',
-        homeScore: 2,
-        awayScore: 2,
-        matchStatus: 'ft',
-        minute: 90,
-        predictionMinute: '66\'',
-        predictionScore: '2 - 1',
-        prediction: '+1 Gol - (3.5 ÜST)',
-        result: 'won',
-        isVip: true
-    },
-    {
-        id: '2',
-        date: '10.12.2025',
-        time: '02:24',
-        botName: 'Alert System',
-        league: 'Bolivian Primera Division',
-        leagueFlag: '🇧🇴',
-        homeTeam: 'Jorge Wilstermann',
-        awayTeam: 'Gualberto Villarroel',
-        homeScore: 2,
-        awayScore: 2,
-        matchStatus: 'ft',
-        minute: 90,
-        predictionMinute: '25\'',
-        predictionScore: '0 - 0',
-        prediction: 'IY 0.5 ÜST',
-        result: 'won',
-        isVip: true
-    },
-    {
-        id: '3',
-        date: '10.12.2025',
-        time: '00:35',
-        botName: 'Alert System',
-        league: 'UEFA Champions League',
-        leagueFlag: '🇪🇺',
-        homeTeam: 'FC Barcelona',
-        awayTeam: 'Eintracht Frankfurt',
-        homeScore: 2,
-        awayScore: 1,
-        matchStatus: 'ft',
-        minute: 90,
-        predictionMinute: '72\'',
-        predictionScore: '2 - 1',
-        prediction: '+1 Gol - (3.5 ÜST)',
-        result: 'lost',
-        isVip: true
-    },
-    {
-        id: '4',
-        date: '10.12.2025',
-        time: '00:29',
-        botName: 'Algoritma: 01',
-        league: 'UEFA W. Champions League',
-        leagueFlag: '🇪🇺',
-        homeTeam: 'PSG Women',
-        awayTeam: 'Oud Heverlee Women',
-        homeScore: 0,
-        awayScore: 0,
-        matchStatus: 'ft',
-        minute: 90,
-        predictionMinute: '71\'',
-        predictionScore: '0 - 0',
-        prediction: '+1 Gol - (0.5 ÜST)',
-        result: 'lost',
-        isVip: false
-    },
-    {
-        id: '5',
-        date: '09.12.2025',
-        time: '23:45',
-        botName: 'ALERT: D',
-        league: 'Süper Lig',
-        leagueFlag: '🇹🇷',
-        homeTeam: 'Galatasaray',
-        awayTeam: 'Fenerbahçe',
-        homeScore: 2,
-        awayScore: 1,
-        matchStatus: 'ft',
-        minute: 90,
-        predictionMinute: '55\'',
-        predictionScore: '1 - 1',
-        prediction: '+1 Gol - (2.5 ÜST)',
-        result: 'won',
-        isVip: true
-    },
-    {
-        id: '6',
-        date: '09.12.2025',
-        time: '22:30',
-        botName: 'Alert Code: 2',
-        league: 'Premier League',
-        leagueFlag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-        homeTeam: 'Manchester United',
-        awayTeam: 'Liverpool',
-        homeScore: 1,
-        awayScore: 3,
-        matchStatus: 'ft',
-        minute: 90,
-        predictionMinute: '40\'',
-        predictionScore: '0 - 1',
-        prediction: 'MS 2',
-        result: 'won',
-        isVip: true
-    },
-    {
-        id: '7',
-        date: '09.12.2025',
-        time: '21:00',
-        botName: 'AlertCode: 17',
-        league: 'Ligue 1',
-        leagueFlag: '🇫🇷',
-        homeTeam: 'PSG',
-        awayTeam: 'Lyon',
-        homeScore: 4,
-        awayScore: 1,
-        matchStatus: 'ft',
-        minute: 90,
-        predictionMinute: '50\'',
-        predictionScore: '2 - 0',
-        prediction: '+2 Gol',
-        result: 'won',
-        isVip: true
-    },
-    {
-        id: '8',
-        date: '09.12.2025',
-        time: '20:30',
-        botName: 'ALERT: D',
-        league: 'Eredivisie',
-        leagueFlag: '🇳🇱',
-        homeTeam: 'Ajax',
-        awayTeam: 'Feyenoord',
-        homeScore: 2,
-        awayScore: 2,
-        matchStatus: 'ft',
-        minute: 90,
-        predictionMinute: '65\'',
-        predictionScore: '1 - 2',
-        prediction: '+1 Gol',
-        result: 'won',
-        isVip: true
-    },
-    {
-        id: '9',
-        date: '09.12.2025',
-        time: '19:00',
-        botName: 'Alert System',
-        league: 'Süper Lig',
-        leagueFlag: '🇹🇷',
-        homeTeam: 'Beşiktaş',
-        awayTeam: 'Trabzonspor',
-        homeScore: 1,
-        awayScore: 0,
-        matchStatus: 'ft',
-        minute: 90,
-        predictionMinute: '70\'',
-        predictionScore: '0 - 0',
-        prediction: '+1 Gol',
-        result: 'won',
-        isVip: true
-    },
-    {
-        id: '10',
-        date: '09.12.2025',
-        time: '18:00',
-        botName: 'Algoritma: 01',
-        league: 'Primeira Liga',
-        leagueFlag: '🇵🇹',
-        homeTeam: 'Benfica',
-        awayTeam: 'Porto',
-        homeScore: 3,
-        awayScore: 2,
-        matchStatus: 'ft',
-        minute: 90,
-        predictionMinute: '55\'',
-        predictionScore: '2 - 1',
-        prediction: '+1 Gol - (4.5 ÜST)',
-        result: 'won',
-        isVip: true
-    },
-]
+const initialPredictions: Prediction[] = []
 
 const botOptions = ['Tüm Botlar', 'Alert System', 'ALERT: D', 'Alert Code: 2', 'AlertCode: 17', 'Algoritma: 01', 'CODE 100']
 const ITEMS_PER_PAGE = 10
@@ -521,12 +234,55 @@ export default function PredictionsClientPage() {
     const [predictions, setPredictions] = useState<Prediction[]>(initialPredictions)
     const [currentPage, setCurrentPage] = useState(1)
 
-    // Load manual predictions from localStorage and merge with initial predictions
+    // Load real predictions from Supabase and manual predictions
     useEffect(() => {
-        const loadManualPredictions = () => {
+        const fetchPredictions = async () => {
+            const supabase = createClient()
+
+            // 1. Fetch from DB
+            const { data, error } = await supabase
+                .from('predictions_raw')
+                .select('*')
+                .order('received_at', { ascending: false })
+                .limit(100)
+
+            let dbPredictions: Prediction[] = []
+
+            if (data) {
+                dbPredictions = data.map((row: any) => {
+                    // Extract Bot Name from analysis if possible, otherwise 'AI Bot'
+                    // analysis format usually: "AlertCode: IY-1 Ev: 21 Dep: 16"
+                    let botName = 'AI Bot'
+                    const match = row.prediction_text?.match(/AlertCode:\s*([^\s]+)/) || row.prediction_text?.match(/Alert\s*System/)
+                    if (match) botName = match[0]
+
+                    const dateObj = new Date(row.received_at)
+
+                    return {
+                        id: row.external_id || row.id.toString(),
+                        date: format(dateObj, 'dd.MM.yyyy'),
+                        time: format(dateObj, 'HH:mm'),
+                        botName: botName,
+                        league: row.league_name || 'Unknown',
+                        leagueFlag: '⚽', // DB doesn't have flag yet
+                        homeTeam: row.home_team_name,
+                        awayTeam: row.away_team_name,
+                        homeScore: 0, // DB doesn't have live score yet
+                        awayScore: 0,
+                        matchStatus: 'live', // Assume live if recently received
+                        minute: row.match_minute || 0,
+                        predictionMinute: '0\'',
+                        predictionScore: '0 - 0',
+                        prediction: row.prediction_type,
+                        result: 'pending',
+                        isVip: true // Default to VIP for AI
+                    }
+                })
+            }
+
+            // 2. Load Manual
             const manualPreds = getManualPredictions()
-            // Convert ManualPrediction to Prediction type and merge
-            const converted: Prediction[] = manualPreds.map((mp: ManualPrediction) => ({
+            const manualConverted: Prediction[] = manualPreds.map((mp: ManualPrediction) => ({
                 id: mp.id,
                 date: mp.date,
                 time: mp.time,
@@ -545,20 +301,23 @@ export default function PredictionsClientPage() {
                 result: mp.result,
                 isVip: mp.isVip
             }))
-            // Merge: manual predictions first (newest), then initial predictions
-            setPredictions([...converted, ...initialPredictions])
+
+            setPredictions([...manualConverted, ...dbPredictions])
         }
 
-        loadManualPredictions()
+        fetchPredictions()
+        // Auto refresh
+        const interval = setInterval(fetchPredictions, 30000)
 
         // Listen for new manual predictions
-        const handleNewPrediction = () => loadManualPredictions()
+        const handleNewPrediction = () => fetchPredictions()
         window.addEventListener('manual-prediction-added', handleNewPrediction)
         window.addEventListener('prediction-updated', handleNewPrediction)
         window.addEventListener('prediction-deleted', handleNewPrediction)
         window.addEventListener('prediction-vip-toggled', handleNewPrediction)
 
         return () => {
+            clearInterval(interval)
             window.removeEventListener('manual-prediction-added', handleNewPrediction)
             window.removeEventListener('prediction-updated', handleNewPrediction)
             window.removeEventListener('prediction-deleted', handleNewPrediction)
@@ -566,7 +325,7 @@ export default function PredictionsClientPage() {
         }
     }, [])
 
-    // Simulate live minute updates
+    // Simulate minute updates just for visual effect
     useEffect(() => {
         const interval = setInterval(() => {
             setPredictions(prev => prev.map(p => {
