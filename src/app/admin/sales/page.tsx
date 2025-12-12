@@ -10,8 +10,25 @@ export default function SalesPage() {
 
     // Hardcoded products for now (later fetch from Stripe)
     const PRODUCTS = [
-        { id: 'price_1QrdqaF6efe04a03J1', name: 'Premium (Aylık)', price: '199.99 TL' },
-        { id: 'price_1QrdqaF6efe04a03J2', name: 'Premium (Yıllık)', price: '1999.99 TL' },
+        {
+            id: 'monthly',
+            name: 'Premium (Aylık)',
+            price: '199.99 TL',
+            priceId: 'price_1QrdqaF6efe04a03J1'
+        },
+        {
+            id: 'yearly',
+            name: 'Premium (Yıllık)',
+            price: '1999.99 TL',
+            priceId: 'price_1QrdqaF6efe04a03J2'
+        },
+        {
+            id: 'weekly',
+            name: 'Haftalık VIP Üyelik',
+            description: '7 Günlük Tam Erişim',
+            price: '199.99₺',
+            priceId: 'price_1SdVRQJXZwcCGJkYQGOIuESH'
+        },
     ]
 
     const handleCreateLink = async (priceId: string) => {
@@ -65,7 +82,7 @@ export default function SalesPage() {
                         </div>
 
                         <button
-                            onClick={() => handleCreateLink(product.id)}
+                            onClick={() => handleCreateLink(product.priceId)}
                             disabled={isLoading}
                             className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50"
                         >
