@@ -51,7 +51,7 @@ export default function LogsPage() {
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-gray-900">Gelen API İstekleri (Son 50)</h1>
+                <h1 className="text-2xl font-bold" style={{ color: '#000000' }}>Gelen API İstekleri (Son 50)</h1>
                 <button
                     onClick={fetchLogs}
                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-white font-medium transition-colors"
@@ -61,7 +61,7 @@ export default function LogsPage() {
             </div>
 
             {loading && logs.length === 0 ? (
-                <div className="text-center py-10 text-gray-500">Yükleniyor...</div>
+                <div className="text-center py-10" style={{ color: '#6b7280' }}>Yükleniyor...</div>
             ) : logs.length === 0 ? (
                 <div className="bg-[#1C1C1E] border border-white/10 rounded-xl p-8 text-center text-gray-400">
                     Henüz kayıt yok. Tablo oluşturulmamış olabilir veya istek gelmemiş.
@@ -85,7 +85,7 @@ export default function LogsPage() {
                                         {log.response_status}
                                     </span>
                                 </div>
-                                <div className="text-sm text-gray-400 font-mono whitespace-nowrap flex-shrink-0 w-48 text-right font-medium">
+                                <div className="text-sm text-gray-300 font-mono whitespace-nowrap flex-shrink-0 w-48 text-right font-medium">
                                     {formatInTimeZone(new Date(log.created_at), 'Europe/Istanbul', 'd MMM HH:mm:ss', { locale: tr })} (TSİ)
                                 </div>
                             </div>
