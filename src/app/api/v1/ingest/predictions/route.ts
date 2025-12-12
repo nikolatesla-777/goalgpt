@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(responseBody, { status })
         }
 
-        // 2. Determine Format
-        const isLegacy = 'Id' in body && 'Prediction' in body
+        // 2. Determine Format (Case Insensitive)
+        const isLegacy = ('Id' in body && 'Prediction' in body) || ('id' in body && 'prediction' in body)
 
         // 3. API Key validation
         const apiKey = request.headers.get('x-api-key')
@@ -47,7 +47,14 @@ export async function POST(request: NextRequest) {
 
             if (isLegacy) {
                 console.log('📦 Legacy format detected - processing...')
-                const legacyPayload = body as LegacyPredictionPayload
+
+                // Normalize keys to PascalCase
+                const legacyPayload: LegacyPredictionPayload = {
+                    Id: body.Id || body.id,
+                    Date: body.Date || body.date,
+                    Prediction: body.Prediction || body.prediction
+                }
+
                 predictions = PredictionService.parseLegacyPayload(legacyPayload)
             } else {
                 predictions = [body as AIPredictionPayload]
