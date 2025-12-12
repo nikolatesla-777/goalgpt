@@ -100,7 +100,8 @@ export default function SalesPage() {
                 <h3 className="font-bold mb-3">Nasıl Çalışır?</h3>
                 <ol className="list-decimal pl-5 space-y-2 text-sm text-slate-600">
                     <li>Yukarıdan bir paket seçip "Link Oluştur" diyin.</li>
-                    <li>Oluşan linki müşteriye (Whatsapp/Email) gönderin.</li>
+                    <li>Link Müşteriye (Whatsapp/Email) gönderin.</li>
+                    <li><strong>ÖNEMLİ:</strong> Müşteri ödeme ekranında, **uygulamaya kayıtlı mail adresini** girmelidir.</li>
                     <li>Müşteri ödemeyi tamamladığında <strong>otomatik olarak</strong> Premium üyeliği aktif olur.</li>
                     <li>Mobil uygulamaya girdiğinde "Restore Purchase" yapmasına gerek kalmadan açılır.</li>
                 </ol>

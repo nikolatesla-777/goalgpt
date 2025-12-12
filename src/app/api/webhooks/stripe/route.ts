@@ -62,13 +62,31 @@ export async function POST(req: NextRequest) {
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     // Retrieve the user ID from metadata
-    const userId = session.metadata?.userId;
+    let userId = session.metadata?.userId;
     const customerId = session.customer as string;
     const subscriptionId = session.subscription as string;
+    const customerEmail = session.customer_details?.email;
 
-    console.log(`[Stripe] Checkout Completed for User: ${userId}`);
+    console.log(`[Stripe] Checkout Completed. Metadata User: ${userId}, Email: ${customerEmail}`);
 
-    if (userId) {
+    // Fallback: If userId is missing or 'guest_user', try to find by email
+    if ((!userId || userId === 'guest_user') && customerEmail) {
+        console.log(`[Stripe] Generic user detected. Searching profile for email: ${customerEmail}`);
+        const { data: userProfile } = await supabaseAdmin
+            .from('profiles')
+            .select('id')
+            .eq('email', customerEmail)
+            .single();
+
+        if (userProfile) {
+            userId = userProfile.id;
+            console.log(`[Stripe] Match found! User ID: ${userId}`);
+        } else {
+            console.warn(`[Stripe] No user found for email: ${customerEmail}. VIP not granted.`);
+        }
+    }
+
+    if (userId && userId !== 'guest_user') {
         // Update Supabase Profile
         await supabaseAdmin
             .from('profiles')
@@ -83,6 +101,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
                 platform: 'web_stripe'
             })
             .eq('id', userId);
+
+        console.log(`[Stripe] VIP Access Granted to User: ${userId}`);
     }
 }
 

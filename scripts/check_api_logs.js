@@ -40,6 +40,20 @@ async function checkLogs() {
             console.log(`[${log.created_at}] ${log.method} ${log.endpoint} (${log.response_status}) IP:${log.ip_address} UA:${log.user_agent} ${preview}`);
         });
 
+        // 2. Check Raw Predictions
+        console.log('\nQuerying predictions_raw (Last 6h)...');
+        const preds = await supabase
+            .from('predictions_raw')
+            .select('*')
+            .gte('created_at', timeWindow.toISOString())
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        console.log(`Found: ${preds.data?.length || 0} records`);
+        preds.data?.forEach(p => {
+            console.log(`[${p.created_at}] Source:${p.source} Data:${JSON.stringify(p.data).substring(0, 100)}...`);
+        });
+
     } catch (err) {
         console.error('Unexpected error:', err);
     }
