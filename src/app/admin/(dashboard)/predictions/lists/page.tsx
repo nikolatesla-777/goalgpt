@@ -12,7 +12,9 @@ import {
     MoreVertical,
     Send,
     Trash2,
-    Copy
+    Copy,
+    LayoutGrid,
+    Filter
 } from 'lucide-react'
 
 // Mock data for prediction lists/groups
@@ -63,15 +65,17 @@ const predictionLists = [
 function ListRow({ list }: { list: typeof predictionLists[0] }) {
     const [showMenu, setShowMenu] = useState(false)
 
-    const statusColors: Record<string, string> = {
-        draft: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
-        published: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    // Status Badge Styles
+    const statusBadges: Record<string, string> = {
+        draft: 'bg-slate-100 text-slate-600 border-slate-200',
+        published: 'bg-blue-50 text-blue-600 border-blue-200 ring-blue-500/10',
     }
 
-    const resultColors: Record<string, string> = {
-        pending: 'bg-yellow-500/20 text-yellow-400',
-        won: 'bg-green-500/20 text-green-400',
-        lost: 'bg-red-500/20 text-red-400',
+    // Result Badge Styles
+    const resultBadges: Record<string, string> = {
+        pending: 'bg-amber-50 text-amber-600 border-amber-200',
+        won: 'bg-emerald-50 text-emerald-600 border-emerald-200',
+        lost: 'bg-red-50 text-red-600 border-red-200',
     }
 
     const createdAt = new Date(list.createdAt).toLocaleDateString('tr-TR', {
@@ -79,48 +83,56 @@ function ListRow({ list }: { list: typeof predictionLists[0] }) {
     })
 
     return (
-        <div className="bg-gradient-to-br from-white/[0.03] to-transparent border border-white/5 rounded-xl p-5 hover:border-white/10 transition-all group">
+        <div className="bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-300 hover:shadow-sm transition-all group">
             <div className="flex items-center gap-4">
                 {/* Icon */}
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-                    <List size={24} className="text-purple-400" />
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100 flex items-center justify-center">
+                    <List size={22} className="text-purple-600" />
                 </div>
 
                 {/* Info */}
-                <div className="flex-1">
-                    <div className="font-medium text-white text-lg">{list.name}</div>
-                    <div className="text-sm text-slate-500">{list.description}</div>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-slate-800 text-lg truncate">{list.name}</h3>
+                        {list.status === 'published' && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100">
+                                YAYINDA
+                            </span>
+                        )}
+                    </div>
+                    <p className="text-sm text-slate-500 truncate">{list.description}</p>
                 </div>
 
-                {/* Predictions Count */}
-                <div className="text-center">
-                    <div className="text-lg font-bold text-white">{list.predictions}</div>
-                    <div className="text-xs text-slate-500">Tahmin</div>
-                </div>
-
-                {/* Total Odds */}
-                <div className="text-center">
-                    <div className="text-lg font-bold text-blue-400">{list.totalOdds}</div>
-                    <div className="text-xs text-slate-500">Toplam Oran</div>
-                </div>
-
-                {/* Status */}
-                <div className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${statusColors[list.status]}`}>
-                    {list.status === 'draft' ? 'Taslak' : 'Yayında'}
+                {/* Metrics */}
+                <div className="hidden sm:flex items-center gap-8 mr-4">
+                    <div className="text-center">
+                        <div className="text-lg font-bold text-slate-800">{list.predictions}</div>
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Tahmin</div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-lg font-bold text-purple-600">{list.totalOdds}</div>
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Oran</div>
+                    </div>
                 </div>
 
                 {/* Result */}
-                {list.result && (
-                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${resultColors[list.result]}`}>
-                        {list.result === 'won' ? <CheckCircle2 size={14} /> :
-                            list.result === 'lost' ? <XCircle size={14} /> :
-                                <Clock size={14} />}
-                        {list.result === 'won' ? 'Kazandı' : list.result === 'lost' ? 'Kaybetti' : 'Bekliyor'}
-                    </div>
-                )}
+                <div className="hidden md:block w-32">
+                    {list.result ? (
+                        <div className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold border ${resultBadges[list.result]}`}>
+                            {list.result === 'won' ? <CheckCircle2 size={16} /> :
+                                list.result === 'lost' ? <XCircle size={16} /> :
+                                    <Clock size={16} />}
+                            {list.result === 'won' ? 'Kazandı' : list.result === 'lost' ? 'Kaybetti' : 'Bekliyor'}
+                        </div>
+                    ) : (
+                        <div className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold border ${statusBadges[list.status]}`}>
+                            Taslak
+                        </div>
+                    )}
+                </div>
 
                 {/* Date */}
-                <div className="flex items-center gap-1 text-sm text-slate-500">
+                <div className="hidden lg:flex items-center gap-1.5 text-xs font-medium text-slate-400 w-24 justify-end">
                     <Calendar size={14} />
                     {createdAt}
                 </div>
@@ -129,23 +141,27 @@ function ListRow({ list }: { list: typeof predictionLists[0] }) {
                 <div className="relative">
                     <button
                         onClick={() => setShowMenu(!showMenu)}
-                        className="p-2 hover:bg-white/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                        className="p-2 hover:bg-slate-50 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
                     >
-                        <MoreVertical size={18} className="text-slate-400" />
+                        <MoreVertical size={20} />
                     </button>
 
                     {showMenu && (
-                        <div className="absolute right-0 top-10 w-40 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl z-10 overflow-hidden">
-                            <button className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-white/5 text-left text-sm text-slate-300">
-                                <Send size={14} /> Yayınla
-                            </button>
-                            <button className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-white/5 text-left text-sm text-slate-300">
-                                <Copy size={14} /> Kopyala
-                            </button>
-                            <button className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-red-500/10 text-left text-sm text-red-400">
-                                <Trash2 size={14} /> Sil
-                            </button>
-                        </div>
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                            <div className="absolute right-0 top-10 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-20 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-200">
+                                <button className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-slate-50 text-left text-sm font-medium text-slate-600">
+                                    <Send size={16} className="text-slate-400" /> Yayınla
+                                </button>
+                                <button className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-slate-50 text-left text-sm font-medium text-slate-600">
+                                    <Copy size={16} className="text-slate-400" /> Kopyala
+                                </button>
+                                <div className="h-px bg-slate-100 my-1" />
+                                <button className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-red-50 text-left text-sm font-medium text-red-600">
+                                    <Trash2 size={16} /> Sil
+                                </button>
+                            </div>
+                        </>
                     )}
                 </div>
             </div>
@@ -167,86 +183,95 @@ export default function PredictionListsPage() {
         return matchesSearch && matchesStatus
     })
 
+    const stats = {
+        total: predictionLists.length,
+        published: predictionLists.filter(l => l.status === 'published').length,
+        won: predictionLists.filter(l => l.result === 'won').length,
+        lost: predictionLists.filter(l => l.result === 'lost').length,
+    }
+
     return (
         <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Tahmin Listeleri</h1>
-                    <p className="text-slate-400">Kombine ve grup tahminlerini yönetin</p>
+                    <h1 className="text-2xl font-bold text-slate-900 mb-1">Tahmin Listeleri</h1>
+                    <p className="text-slate-500 text-sm">Kombine kuponları ve özel listeleri buradan yönetebilirsiniz.</p>
                 </div>
 
-                <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-bold rounded-xl transition-all">
-                    <Plus size={20} />
+                <button className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl transition-all shadow-sm hover:shadow active:scale-95">
+                    <Plus size={18} />
                     Yeni Liste
                 </button>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 rounded-2xl p-5">
-                    <div className="text-2xl font-bold text-white mb-1">{predictionLists.length}</div>
-                    <div className="text-xs text-slate-500">Toplam Liste</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                    <div className="text-2xl font-bold text-slate-800 mb-1">{stats.total}</div>
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Toplam Liste</div>
                 </div>
-                <div className="bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 rounded-2xl p-5">
-                    <div className="text-2xl font-bold text-blue-400 mb-1">{predictionLists.filter(l => l.status === 'published').length}</div>
-                    <div className="text-xs text-slate-500">Yayında</div>
+                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                    <div className="text-2xl font-bold text-blue-600 mb-1">{stats.published}</div>
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Yayında</div>
                 </div>
-                <div className="bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 rounded-2xl p-5">
-                    <div className="text-2xl font-bold text-green-400 mb-1">{predictionLists.filter(l => l.result === 'won').length}</div>
-                    <div className="text-xs text-slate-500">Kazanan</div>
+                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                    <div className="text-2xl font-bold text-emerald-600 mb-1">{stats.won}</div>
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Kazanan</div>
                 </div>
-                <div className="bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 rounded-2xl p-5">
-                    <div className="text-2xl font-bold text-red-400 mb-1">{predictionLists.filter(l => l.result === 'lost').length}</div>
-                    <div className="text-xs text-slate-500">Kaybeden</div>
+                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                    <div className="text-2xl font-bold text-red-600 mb-1">{stats.lost}</div>
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Kaybeden</div>
                 </div>
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap gap-4 items-center">
-                {/* Search */}
-                <div className="relative flex-1 min-w-[200px] max-w-md">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                    <input
-                        type="text"
-                        placeholder="Liste ara..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:border-white/20 transition-all"
-                    />
-                </div>
-
-                {/* Status Filter */}
-                <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-slate-50 p-1.5 rounded-2xl border border-slate-200">
+                {/* Status Filter Tabs */}
+                <div className="flex p-1 bg-white border border-slate-200 rounded-xl shadow-sm w-full sm:w-auto">
                     {(['all', 'draft', 'published'] as const).map((status) => (
                         <button
                             key={status}
                             onClick={() => setFilterStatus(status)}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filterStatus === status
-                                    ? 'bg-white/10 text-white border border-white/20'
-                                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                            className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${filterStatus === status
+                                ? 'bg-slate-100 text-slate-900 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                                 }`}
                         >
                             {status === 'all' ? 'Tümü' : status === 'draft' ? 'Taslak' : 'Yayında'}
                         </button>
                     ))}
                 </div>
+
+                {/* Search */}
+                <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input
+                        type="text"
+                        placeholder="Liste ara..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all font-medium"
+                    />
+                </div>
             </div>
 
             {/* Lists */}
             <div className="space-y-3">
-                {filteredLists.map((list) => (
-                    <ListRow key={list.id} list={list} />
-                ))}
+                {filteredLists.length > 0 ? (
+                    filteredLists.map((list) => (
+                        <ListRow key={list.id} list={list} />
+                    ))
+                ) : (
+                    <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
+                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Search size={32} className="text-slate-300" />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-800 mb-1">Liste bulunamadı</h3>
+                        <p className="text-slate-500 text-sm">Arama kriterlerinize uygun liste yok.</p>
+                    </div>
+                )}
             </div>
-
-            {filteredLists.length === 0 && (
-                <div className="text-center py-16 bg-white/5 rounded-2xl border border-white/10">
-                    <List size={48} className="mx-auto text-slate-600 mb-4" />
-                    <h3 className="text-xl font-bold text-white mb-2">Liste bulunamadı</h3>
-                    <p className="text-slate-400">Yeni bir liste oluşturun</p>
-                </div>
-            )}
         </div>
     )
 }

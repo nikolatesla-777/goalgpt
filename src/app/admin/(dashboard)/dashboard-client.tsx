@@ -282,15 +282,16 @@ function MetricCard({ id, title, data, icon: Icon, color, isMoney, isAlert, acti
     const c = COLORS[color] || COLORS.slate
 
     return (
+    return (
         <button
             onClick={onClick}
-            className={`relative bg-white rounded-xl p-4 text-left transition-all border-2 overflow-hidden group hover:shadow-lg ${active ? `${c.border} shadow-lg` : 'border-slate-200 hover:border-slate-300'}`}
+            className={`relative bg-white rounded-xl p-3 md:p-4 text-left transition-all border-2 overflow-hidden group hover:shadow-lg ${active ? `${c.border} shadow-lg` : 'border-slate-200 hover:border-slate-300'}`}
         >
             {active && <div className="absolute top-0 left-0 right-0 h-1" style={{ backgroundColor: c.spark }} />}
 
-            <div className="flex items-start justify-between mb-3">
-                <div className={`w-10 h-10 rounded-xl ${c.bg} flex items-center justify-center`}>
-                    <Icon size={20} className={c.text} />
+            <div className="flex items-start justify-between mb-2 md:mb-3">
+                <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl ${c.bg} flex items-center justify-center`}>
+                    <Icon size={18} className={`${c.text} md:w-5 md:h-5 w-4 h-4`} />
                 </div>
                 {isAlert && data.total > 0 && (
                     <span className="relative flex h-3 w-3">
@@ -300,24 +301,25 @@ function MetricCard({ id, title, data, icon: Icon, color, isMoney, isAlert, acti
                 )}
             </div>
 
-            <p className="text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">{title}</p>
+            <p className="text-[10px] md:text-xs font-semibold text-slate-500 mb-0.5 md:mb-1 uppercase tracking-wide truncate">{title}</p>
 
-            <div className="flex items-end justify-between gap-2">
-                <div>
-                    <p className={`text-2xl font-bold tracking-tight ${isAlert && data.total > 0 ? 'text-red-600' : 'text-slate-800'}`}>
+            <div className="flex items-end justify-between gap-1 md:gap-2">
+                <div className="min-w-0">
+                    <p className={`text-lg md:text-2xl font-bold tracking-tight truncate ${isAlert && data.total > 0 ? 'text-red-600' : 'text-slate-800'}`}>
                         {isMoney ? fmtMoney(data.total) : fmtCount(data.total)}
                     </p>
-                    <div className="flex gap-3 mt-1.5">
-                        <span className="text-[11px] text-slate-400 flex items-center gap-1"><Apple size={11} /> {fmtCount(data.apple)}</span>
-                        <span className="text-[11px] text-green-500 flex items-center gap-1"><AndroidIcon size={11} /> {fmtCount(data.google)}</span>
+                    <div className="flex flex-col md:flex-row gap-0.5 md:gap-3 mt-1 md:mt-1.5">
+                        <span className="text-[9px] md:text-[11px] text-slate-400 flex items-center gap-1"><Apple size={10} className="md:w-[11px] md:h-[11px]" /> {fmtCount(data.apple)}</span>
+                        <span className="text-[9px] md:text-[11px] text-green-500 flex items-center gap-1"><AndroidIcon size={10} className="md:w-[11px] md:h-[11px]" /> {fmtCount(data.google)}</span>
                     </div>
                 </div>
-                {/* Lazy rendered sparkline */}
-                <div className="opacity-50 group-hover:opacity-100 transition-opacity">
+                {/* Lazy rendered sparkline - Hidden on Mobile to save space */}
+                <div className="hidden md:block opacity-50 group-hover:opacity-100 transition-opacity">
                     <MiniSparkline data={CHART_DATA[id] || []} color={c.spark} />
                 </div>
             </div>
         </button>
+    )
     )
 }
 
@@ -620,7 +622,7 @@ export default function DashboardClient() {
                         <span className={`w-2 h-2 rounded-full ${row === 1 ? 'bg-emerald-500 animate-pulse' : row === 2 ? 'bg-blue-500' : 'bg-yellow-500'}`}></span>
                         {row === 1 ? 'Finansal Sağlık' : row === 2 ? 'Edinim & Büyüme' : 'Tutundurma & Kayıp'}
                     </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                         {allMetrics.filter(m => m.row === row).map(m => <MetricCard key={m.id} {...m} active={activeMetric === m.id} onClick={() => handleMetricChange(m.id)} />)}
                     </div>
                 </div>
