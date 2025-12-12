@@ -285,7 +285,7 @@ function MetricCard({ id, title, data, icon: Icon, color, isMoney, isAlert, acti
 
         <button
             onClick={onClick}
-            className={`relative bg-white rounded-xl p-3 md:p-4 text-left transition-all border-2 overflow-hidden group hover:shadow-lg ${active ? `${c.border} shadow-lg` : 'border-slate-200 hover:border-slate-300'}`}
+            className={`relative w-full h-full bg-white rounded-xl p-3 md:p-4 text-left transition-all border-2 overflow-hidden group hover:shadow-lg ${active ? `${c.border} shadow-lg` : 'border-slate-200 hover:border-slate-300'}`}
         >
             {active && <div className="absolute top-0 left-0 right-0 h-1" style={{ backgroundColor: c.spark }} />}
 
@@ -657,7 +657,7 @@ export default function DashboardClient() {
                     </button>
 
                     {/* Horizontal Metrics List */}
-                    <div className="flex gap-2.5 overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 py-2 scrollbar-none snap-x">
+                    <div className="flex gap-3 overflow-x-auto p-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-none snap-x items-stretch">
                         {allMetrics.map(m => (
                             <div key={m.id} className="min-w-[180px] md:min-w-[200px] snap-start shrink-0">
                                 <MetricCard
