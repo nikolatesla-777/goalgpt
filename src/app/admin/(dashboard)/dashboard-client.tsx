@@ -657,9 +657,9 @@ export default function DashboardClient() {
                     </button>
 
                     {/* Horizontal Metrics List */}
-                    <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 py-2 scrollbar-none snap-x">
+                    <div className="flex gap-2.5 overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 py-2 scrollbar-none snap-x">
                         {allMetrics.map(m => (
-                            <div key={m.id} className="min-w-[220px] md:min-w-[240px] snap-start shrink-0">
+                            <div key={m.id} className="min-w-[180px] md:min-w-[200px] snap-start shrink-0">
                                 <MetricCard
                                     {...m}
                                     active={activeMetric === m.id}
