@@ -656,11 +656,18 @@ export default function DashboardClient() {
                         Panela Dön
                     </button>
 
-                    {activeMetricInfo && (
-                        <div className="max-w-md">
-                            <MetricCard {...activeMetricInfo} active={true} />
-                        </div>
-                    )}
+                    {/* Horizontal Metrics List */}
+                    <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 py-2 scrollbar-hide snap-x">
+                        {allMetrics.map(m => (
+                            <div key={m.id} className="min-w-[280px] sm:min-w-[300px] snap-center">
+                                <MetricCard
+                                    {...m}
+                                    active={activeMetric === m.id}
+                                    onClick={() => handleMetricChange(m.id)}
+                                />
+                            </div>
+                        ))}
+                    </div>
 
                     {/* Multi-Line Chart */}
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
