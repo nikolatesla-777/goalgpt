@@ -72,6 +72,7 @@ export type FakeMember = {
     id: string; name: string; email: string; phone: string; segment: SegmentType; segmentLabel: string
     vipStatus: 'VIP' | 'FREE'; platform: 'iOS' | 'Android'; autoRenew: boolean
     lastActivity: string; expirationDate: string | null; amount?: number; registeredDate: string
+    package?: { name: string; price: number; interval: 'week' | 'month' | 'year' }
 }
 
 // =============================================================================
@@ -292,7 +293,12 @@ memberData.forEach(data => {
             lastActivity: ['2 dk', '5 dk', '12 dk', '30 dk', '1 saat', '2 saat'][Math.floor(Math.random() * 6)] + ' önce',
             expirationDate: data.vip === 'VIP' ? `${Math.floor(10 + Math.random() * 20)} Ara 2024` : null,
             amount: data.hasAmount ? packagePrice : undefined,
-            registeredDate: data.date
+            registeredDate: data.date,
+            package: data.vip === 'VIP' ? {
+                name: isWeekly ? 'Haftalık Premium' : 'Aylık Premium',
+                price: packagePrice,
+                interval: isWeekly ? 'week' : 'month'
+            } : undefined
         })
     }
 })
