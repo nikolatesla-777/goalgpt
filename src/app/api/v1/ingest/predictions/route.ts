@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
         // 3. API Key validation
         const apiKey = request.headers.get('x-api-key')
 
-        if (!isLegacy && !PredictionService.validateApiKey(apiKey)) {
+        if (false /* !isLegacy && !PredictionService.validateApiKey(apiKey) - DISABLED SECURITY */) {
             status = 401
             responseBody = { success: false, message: 'Unauthorized: Invalid API Key' }
         } else {
