@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { format } from 'date-fns'
+import { formatInTimeZone } from 'date-fns-tz'
 import { tr } from 'date-fns/locale'
 
 interface ApiLog {
@@ -79,14 +79,14 @@ export default function LogsPage() {
                                     <span className="font-mono text-sm text-yellow-500">{log.method}</span>
                                     <span className="font-mono text-sm text-gray-300">{log.endpoint}</span>
                                     <span className={`px-2 py-0.5 rounded text-xs font-bold ${log.response_status >= 200 && log.response_status < 300
-                                            ? 'bg-emerald-500/20 text-emerald-400'
-                                            : 'bg-red-500/20 text-red-400'
+                                        ? 'bg-emerald-500/20 text-emerald-400'
+                                        : 'bg-red-500/20 text-red-400'
                                         }`}>
                                         {log.response_status}
                                     </span>
                                 </div>
                                 <div className="text-sm text-gray-500">
-                                    {format(new Date(log.created_at), 'd MMM HH:mm:ss', { locale: tr })}
+                                    {formatInTimeZone(new Date(log.created_at), 'Europe/Istanbul', 'd MMM HH:mm:ss', { locale: tr })} (TSİ)
                                 </div>
                             </div>
 
