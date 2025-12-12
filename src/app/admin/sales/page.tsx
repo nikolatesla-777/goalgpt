@@ -15,7 +15,7 @@ export default function SalesPage() {
             name: 'Haftalık VIP Üyelik',
             description: '7 Günlük Tam Erişim',
             price: '199.99₺',
-            priceId: 'price_1SdVRQJXZwcCGJkYQGOIuESH'
+            priceId: 'price_1SdWu4JXZwcCGJkYS3HzslGq'
         },
     ]
 
