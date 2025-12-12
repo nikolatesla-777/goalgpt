@@ -180,7 +180,7 @@ export default function MemberDetailPage() {
                                         <div className="flex items-center gap-2 text-sm text-slate-400 mt-1">
                                             <span className="font-mono bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 text-[10px] font-bold">ID: {member.id}</span>
                                             <span>•</span>
-                                            <span className="truncate max-w-[140px]">{member.email}</span>
+                                            <span className="truncate max-w-[220px]">{member.email}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -241,7 +241,7 @@ export default function MemberDetailPage() {
                                 <span className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-2 py-1 rounded-full">+12%</span>
                             </div>
                             <div>
-                                <p className="text-slate-500 text-[11px] font-semibold uppercase tracking-wide mb-1">Toplam Harcama (LTV)</p>
+                                <p className="text-slate-500 text-[12px] font-medium mb-1">Toplam Harcama (LTV)</p>
                                 <h3 className="text-2xl font-black text-slate-800 tracking-tight">₺{totalSpent.toLocaleString('tr-TR')}</h3>
                             </div>
                         </div>
@@ -257,7 +257,7 @@ export default function MemberDetailPage() {
                                 </span>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-slate-500 text-[11px] font-semibold uppercase tracking-wide">Mevcut Paket</p>
+                                <p className="text-slate-500 text-[12px] font-medium">Mevcut Paket</p>
                                 <h3 className="text-lg font-bold text-slate-800 leading-tight truncate">{member.package?.name || 'Paket Yok'}</h3>
                                 <p className="text-[11px] text-slate-400 font-medium">Bitiş: {member.expirationDate || '-'}</p>
                             </div>
@@ -271,7 +271,7 @@ export default function MemberDetailPage() {
                                 </div>
                             </div>
                             <div>
-                                <p className="text-slate-500 text-[11px] font-semibold uppercase tracking-wide mb-2">Kullanıcı Segmenti</p>
+                                <p className="text-slate-500 text-[12px] font-medium mb-2">Kullanıcı Segmenti</p>
                                 <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold border ${SEGMENT_CONFIG[member.segment]?.color || 'bg-slate-100 text-slate-700'}`}>
                                     {SEGMENT_CONFIG[member.segment]?.label || member.segment}
                                 </span>
@@ -286,7 +286,7 @@ export default function MemberDetailPage() {
                                 </div>
                             </div>
                             <div>
-                                <p className="text-slate-500 text-[11px] font-semibold uppercase tracking-wide mb-1">Son Görülme</p>
+                                <p className="text-slate-500 text-[12px] font-medium mb-1">Son Görülme</p>
                                 <h3 className="text-lg font-bold text-slate-800">{member.lastActivity}</h3>
                                 <p className="text-[10px] text-slate-400 font-mono mt-1 w-full truncate" title={USER_SESSIONS[0]?.ipAddress}>IP: {USER_SESSIONS[0]?.ipAddress}</p>
                             </div>
