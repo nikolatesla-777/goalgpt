@@ -12,18 +12,18 @@ export async function POST(req: NextRequest) {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
         if (!priceId) {
             return NextResponse.json({ error: 'Price ID is required' }, { status: 400 });
         }
 
+        // Use authenticated user or fallback to guest
+        const userId = user?.id || 'guest_user';
+        const userEmail = user?.email || 'guest@goalgpt.app';
+
         // Create Checkout Session
         const session = await StripeService.createCheckoutSession({
-            userId: user.id,
-            email: user.email!,
+            userId: userId,
+            email: userEmail,
             priceId: priceId,
             successUrl: successUrl || `${req.nextUrl.origin}/success`,
             cancelUrl: cancelUrl || `${req.nextUrl.origin}/cancel`,
