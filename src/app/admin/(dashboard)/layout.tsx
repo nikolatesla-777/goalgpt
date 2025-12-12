@@ -21,7 +21,8 @@ import {
     Trophy,
     Clock,
     FileText,
-    Home
+    Home,
+    ShoppingBag
 } from 'lucide-react'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -59,7 +60,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         await supabase.auth.signOut()
         router.push('/admin/login')
     }
-
     const navigation = [
         { name: 'Genel Bakış', href: '/admin', icon: LayoutDashboard },
         {
@@ -96,6 +96,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { name: 'Üye Yönetimi', href: '/admin/members', icon: Users },
         { name: 'Partner Yönetimi', href: '/admin/partners', icon: Users },
         { name: 'Finans & Ödemeler', href: '/admin/finance', icon: CreditCard },
+        { name: 'Web Satış (Stripe)', href: '/admin/sales', icon: ShoppingBag },
         { name: 'Sistem Ayarları', href: '/admin/settings', icon: Settings },
     ]
 
