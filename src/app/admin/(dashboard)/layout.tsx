@@ -67,7 +67,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             id: 'predictions',
             icon: Target,
             subItems: [
-                { name: 'Tüm Tahminler', href: '/admin/predictions', icon: List },
+                { name: 'Gelen AI Tahminleri', href: '/admin/predictions', icon: List },
                 { name: 'Canlı Veri Akışı', href: '/admin/live-flow', icon: Activity },
                 { name: 'Liste Tahminleri', href: '/admin/predictions/lists', icon: List },
                 { name: 'Gelen İstek Logları', href: '/admin/logs', icon: FileText },
