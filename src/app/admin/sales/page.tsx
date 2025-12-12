@@ -21,6 +21,7 @@ export default function SalesPage() {
 
     const handleCreateLink = async (priceId: string) => {
         setIsLoading(true)
+        console.log('Creating link for:', priceId); // Debug log
         try {
             const res = await fetch('/api/stripe/checkout', {
                 method: 'POST',
@@ -31,6 +32,12 @@ export default function SalesPage() {
                     cancelUrl: window.location.origin + '/cancel'
                 })
             })
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({ error: 'Unknown server error' }));
+                throw new Error(errData.error || res.statusText);
+            }
+
             const data = await res.json()
             if (data.url) {
                 setGeneratedLink(data.url)
@@ -39,8 +46,8 @@ export default function SalesPage() {
                 alert('Ödeme Linki Kopyalandı!')
             }
         } catch (e) {
-            console.error(e)
-            alert('Hata oluştu')
+            console.error('Link creation failed:', e)
+            alert('Hata oluştu: ' + (e as Error).message)
         } finally {
             setIsLoading(false)
         }
