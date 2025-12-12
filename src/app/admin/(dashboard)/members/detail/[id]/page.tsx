@@ -151,6 +151,13 @@ export default function MemberDetailPage() {
     const isFree = !isVip
     const totalSpent = member?.amount ? member.amount * 5 : 0 // Fake LTV logic
 
+    // RevenueCat Action Logic
+    const activeActions = useMemo(() => {
+        if (!member) return []
+        const flow = getSegmentFlow(member.segment)
+        return getSortedActions(flow?.recommendedActions || [])
+    }, [member])
+
     if (loading) return <div className="flex bg-slate-50 min-h-screen items-center justify-center text-slate-500">Yükleniyor...</div>
     if (!member) return <div className="flex bg-slate-50 min-h-screen items-center justify-center">Kullanıcı bulunamadı</div>
 
@@ -296,6 +303,26 @@ export default function MemberDetailPage() {
                 </div>
 
                 {/* =========================================================================
+                    RECOMMENDED ACTIONS (NEW SECTION)
+                   ========================================================================= */}
+                {activeActions.length > 0 && (
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-lg font-bold text-slate-800">Önerilen Aksiyonlar</h2>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100">
+                                {SEGMENT_CONFIG[member.segment]?.label || 'Genel'}
+                            </span>
+                        </div>
+                        <div className={`grid grid-cols-1 ${activeActions.length === 1 ? 'md:grid-cols-2 lg:grid-cols-2' : activeActions.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3'} gap-4`}>
+                            {activeActions.map((action) => (
+                                <ActionCard key={action.id} action={action} />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+
+                {/* =========================================================================
                     TABS & MAIN CONTENT
                    ========================================================================= */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-h-[600px]">
@@ -314,13 +341,7 @@ export default function MemberDetailPage() {
                         {activeTab === 'overview' && (
                             <div className="p-6 md:p-8 space-y-8 animate-in fade-in duration-300">
 
-                                {/* Quick Actions Toolbar */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <ActionButton icon={ICONS.gift} label="Promokod Gönder" color="pink" />
-                                    <ActionButton icon={ICONS.sms} label="SMS Gönder" color="green" />
-                                    <ActionButton icon={ICONS.key} label="Şifre Sıfırla" color="orange" />
-                                    <ActionButton icon={ICONS.crown} label="VIP Tanımla" color="yellow" />
-                                </div>
+                                {/* Quick Actions Toolbar Removed - moved to top */}
 
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                                     {/* Left: Journey Flow */}
@@ -561,5 +582,36 @@ function ActionButton({ icon, label, color }: any) {
             <Image src={icon} alt="" width={16} height={16} />
             {label}
         </button>
+    )
+}
+
+function ActionCard({ action }: { action: any }) {
+    const priorityConfig = {
+        high: { border: 'border-l-4 border-l-rose-500', bg: 'bg-white', iconBg: 'bg-rose-50 text-rose-600' },
+        medium: { border: 'border-l-4 border-l-amber-500', bg: 'bg-white', iconBg: 'bg-amber-50 text-amber-600' },
+        low: { border: 'border-l-4 border-l-blue-500', bg: 'bg-white', iconBg: 'bg-blue-50 text-blue-600' }
+    }
+
+    // Fallback if priority is not matching
+    const style = priorityConfig[action.priority as keyof typeof priorityConfig] || priorityConfig.medium
+
+    return (
+        <div className={`p-5 rounded-xl border border-slate-200 shadow-sm flex items-start gap-4 transition-all hover:shadow-md ${style.border} ${style.bg}`}>
+            <div className={`p-3 rounded-xl flex-shrink-0 ${style.iconBg} text-xl flex items-center justify-center`}>
+                {action.icon}
+            </div>
+            <div className="flex-grow min-w-0">
+                <div className="flex justify-between items-start mb-1">
+                    <h4 className="font-bold text-slate-800 text-sm truncate pr-2">{action.title}</h4>
+                    {action.priority === 'high' && <span className="text-[10px] font-bold bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded uppercase tracking-wider">Acil</span>}
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed mb-3 line-clamp-2">{action.description}</p>
+
+                <button className="w-full py-2.5 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 shadow-sm active:scale-95 group">
+                    <span>{action.buttonText}</span>
+                    <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+                </button>
+            </div>
+        </div>
     )
 }
