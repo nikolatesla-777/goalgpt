@@ -82,7 +82,13 @@ export class PredictionService {
 
     private static base64Decode(str: string): string {
         try {
-            return Buffer.from(str, 'base64').toString('utf-8')
+            const decoded = Buffer.from(str, 'base64').toString('utf-8')
+            try {
+                // Legacy sometimes sends URL encoded text inside Base64 (e.g. %E2%9A%BD)
+                return decodeURIComponent(decoded)
+            } catch {
+                return decoded
+            }
         } catch {
             return str
         }
