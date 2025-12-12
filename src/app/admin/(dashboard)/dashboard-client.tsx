@@ -282,7 +282,7 @@ function MetricCard({ id, title, data, icon: Icon, color, isMoney, isAlert, acti
     const c = COLORS[color] || COLORS.slate
 
     return (
-    return (
+
         <button
             onClick={onClick}
             className={`relative bg-white rounded-xl p-3 md:p-4 text-left transition-all border-2 overflow-hidden group hover:shadow-lg ${active ? `${c.border} shadow-lg` : 'border-slate-200 hover:border-slate-300'}`}
@@ -320,7 +320,7 @@ function MetricCard({ id, title, data, icon: Icon, color, isMoney, isAlert, acti
             </div>
         </button>
     )
-    )
+
 }
 
 // =============================================================================
