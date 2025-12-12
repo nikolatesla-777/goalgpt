@@ -420,13 +420,13 @@ export const SEGMENT_FLOWS: Record<string, SegmentFlow> = {
         ],
         recommendedActions: [
             {
-                id: 'manual_call',
+                id: 'come_back_home',
                 priority: 'high',
-                icon: '📞',
-                title: 'Manuel Arama',
-                description: 'Yüksek değerli müşteri - kişisel iletişim kur',
-                actionType: 'manual_call',
-                buttonText: 'Arama Notu Ekle'
+                icon: '🏠',
+                title: 'Eve Dönüş (Come Back Home)',
+                description: 'İlk ay sadece 9.99 TL teklifi gönder (RC: offering_churn_recovery)',
+                actionType: 'promo',
+                buttonText: '9.99 TL Teklifi'
             },
             {
                 id: 'personalized_email',
@@ -438,22 +438,13 @@ export const SEGMENT_FLOWS: Record<string, SegmentFlow> = {
                 buttonText: 'E-posta Yaz'
             },
             {
-                id: 'winback_50_discount',
-                priority: 'high',
-                icon: '🎁',
-                title: '%50 Geri Dönüş İndirimi',
-                description: 'Büyük indirimle geri kazanmayı dene',
-                actionType: 'promo',
-                buttonText: '%50 Promokod'
-            },
-            {
-                id: 'exit_survey',
+                id: 'winback_push_series',
                 priority: 'medium',
-                icon: '📝',
-                title: 'Çıkış Anketi',
-                description: '"Neden ayrıldınız?" anketi gönder',
-                actionType: 'survey',
-                buttonText: 'Anket Gönder'
+                icon: '🔔',
+                title: 'Win-back Push Serisi',
+                description: '3-7-14. günlerde otomatik bildirim serisi başlat',
+                actionType: 'push',
+                buttonText: 'Seriyi Başlat'
             }
         ]
     },
@@ -526,6 +517,15 @@ export const SEGMENT_FLOWS: Record<string, SegmentFlow> = {
         ],
         recommendedActions: [
             {
+                id: 'lifetime_upgrade',
+                priority: 'high',
+                icon: '💎',
+                title: 'Lifetime Yükseltme',
+                description: '1 Yıllık fiyatına Ömür Boyu Erişim teklifi (RC: offering_vip_upgrade)',
+                actionType: 'promo',
+                buttonText: 'Teklif Gönder'
+            },
+            {
                 id: 'special_badge',
                 priority: 'medium',
                 icon: '🎖️',
@@ -536,30 +536,12 @@ export const SEGMENT_FLOWS: Record<string, SegmentFlow> = {
             },
             {
                 id: 'anniversary_gift',
-                priority: 'high',
+                priority: 'medium',
                 icon: '🎁',
                 title: 'Yıldönümü Hediyesi',
                 description: '1 aylık ücretsiz uzatma veya özel içerik',
                 actionType: 'promo',
                 buttonText: 'Hediye Gönder'
-            },
-            {
-                id: 'beta_access',
-                priority: 'medium',
-                icon: '📣',
-                title: 'Beta Erken Erişim',
-                description: 'Yeni özelliklere erken erişim daveti',
-                actionType: 'email',
-                buttonText: 'Davet Gönder'
-            },
-            {
-                id: 'vip_support',
-                priority: 'low',
-                icon: '👑',
-                title: 'VIP Destek Önceliği',
-                description: 'Müşteri desteğinde öncelik tanımla',
-                actionType: 'badge',
-                buttonText: 'Öncelik Ver'
             }
         ]
     },
@@ -745,11 +727,11 @@ export const SEGMENT_FLOWS: Record<string, SegmentFlow> = {
         ],
         recommendedActions: [
             {
-                id: 'trial_expired_offer',
+                id: 'second_chance_offer',
                 priority: 'high',
                 icon: '🎁',
-                title: 'Deneme Bitimi İndirimi (%40)',
-                description: 'Premium\'a geçiş için büyük indirim teklifi',
+                title: 'İkinci Şans (%50 İndirim)',
+                description: '3 ay boyunca %50 indirimli geri dönüş teklifi (RC: offering_trial_winback)',
                 actionType: 'promo',
                 buttonText: 'Teklif Gönder'
             },
@@ -763,13 +745,13 @@ export const SEGMENT_FLOWS: Record<string, SegmentFlow> = {
                 buttonText: 'Bildirim Gönder'
             },
             {
-                id: 'trial_feedback',
+                id: 'last_call_24h',
                 priority: 'medium',
-                icon: '📝',
-                title: 'Deneme Geri Bildirimi',
-                description: '"Neden abone olmadın?" anketi',
-                actionType: 'survey',
-                buttonText: 'Anket Gönder'
+                icon: '⏳',
+                title: 'Son 24 Saat Uyarısı',
+                description: 'İndirim teklifinin bitmesine 24 saat kala hatırlatma',
+                actionType: 'email',
+                buttonText: 'E-posta Gönder'
             }
         ]
     },
@@ -845,13 +827,13 @@ export const SEGMENT_FLOWS: Record<string, SegmentFlow> = {
         ],
         recommendedActions: [
             {
-                id: 'update_payment_push',
+                id: 'keep_access_push',
                 priority: 'high',
-                icon: '💳',
-                title: 'Ödeme Güncelleme Bildirimi',
-                description: '"Kart bilgilerini güncelle" acil push',
+                icon: '🚨',
+                title: 'Erişimi Koru (Keep Access)',
+                description: '"Premium özelliklerini kaybetmek üzeresin" uyarısı gönder',
                 actionType: 'push',
-                buttonText: 'Bildirim Gönder'
+                buttonText: 'Acil Bildirim'
             },
             {
                 id: 'payment_help_email',

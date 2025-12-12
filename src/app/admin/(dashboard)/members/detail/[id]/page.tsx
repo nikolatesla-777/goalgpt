@@ -159,123 +159,139 @@ export default function MemberDetailPage() {
             <div className="max-w-[1600px] mx-auto space-y-8">
 
                 {/* =========================================================================
-                    HEADER & KEY STATS
+                    HEADER & KEY STATS (REDESIGN)
                    ========================================================================= */}
-                <div className="flex flex-col xl:flex-row gap-6 items-start xl:items-stretch">
+                <div className="grid grid-cols-12 gap-6">
 
-                    {/* PROFILE CARD */}
-                    <div className="bg-white rounded-2xl border border-slate-200 p-6 flex-shrink-0 w-full xl:w-[400px] shadow-sm flex flex-col gap-6 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-purple-600"></div>
+                    {/* 1. PROFILE CARD (LEFT) */}
+                    <div className="col-span-12 xl:col-span-4 bg-white rounded-[20px] border border-slate-200 shadow-sm relative overflow-hidden flex flex-col">
+                        {/* Top Accent */}
+                        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
 
-                        {/* Avatar & Ident */}
-                        <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 border-2 border-white shadow-md flex items-center justify-center text-2xl font-bold text-slate-600">
-                                    {member.name.charAt(0)}
-                                </div>
-                                <div>
-                                    <h1 className="text-xl font-bold text-slate-800">{member.name}</h1>
-                                    <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                                        <span className="font-mono bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">ID: {member.id}</span>
-                                        <span>•</span>
-                                        <span>{member.email}</span>
+                        <div className="p-6 flex-grow flex flex-col">
+                            {/* Profile Header */}
+                            <div className="flex items-start justify-between mb-8">
+                                <div className="flex gap-5">
+                                    <div className="w-[72px] h-[72px] rounded-2xl bg-slate-100 flex items-center justify-center text-3xl font-bold text-slate-700 shadow-inner">
+                                        {member.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <h1 className="text-xl font-bold text-slate-900 mt-1">{member.name}</h1>
+                                        <div className="flex items-center gap-2 text-sm text-slate-400 mt-1">
+                                            <span className="font-mono bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 text-[10px] font-bold">ID: {member.id}</span>
+                                            <span>•</span>
+                                            <span className="truncate max-w-[140px]">{member.email}</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="flex flex-col items-end gap-1">
-                                {isVip ? (
-                                    <span className="px-3 py-1 rounded-full bg-yellow-50 text-yellow-700 text-xs font-bold border border-yellow-200 flex items-center gap-1">
-                                        <Image src={ICONS.crown} alt="" width={12} height={12} /> VIP
-                                    </span>
-                                ) : (
-                                    <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold border border-slate-200">
-                                        FREE
+
+                                {isVip && (
+                                    <span className="px-3 py-1.5 rounded-full bg-[#FFF9E5] text-[#B7880B] text-xs font-bold border border-[#FDEEB3] flex items-center gap-1.5 whitespace-nowrap shadow-sm">
+                                        <Image src="https://cdn-icons-png.flaticon.com/128/10452/10452206.png" alt="" width={16} height={16} /> VIP
                                     </span>
                                 )}
                             </div>
-                        </div>
 
-                        {/* Quick Contact Info */}
-                        <div className="space-y-3 pt-4 border-t border-slate-100">
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-slate-500 flex items-center gap-2"><Image src={ICONS.phone} alt="" width={14} height={14} className="opacity-60" /> Telefon</span>
-                                <span className="font-medium text-slate-800">{member.phone}</span>
+                            {/* Details Grid */}
+                            <div className="space-y-4 mb-8">
+                                <div className="flex items-center justify-between text-[13px]">
+                                    <div className="flex items-center gap-2 text-slate-500 font-medium">
+                                        <div className="w-6 flex justify-center"><Image src="https://cdn-icons-png.flaticon.com/128/159/159832.png" alt="" width={14} height={14} className="opacity-40" /></div>
+                                        Telefon
+                                    </div>
+                                    <span className="font-semibold text-slate-700 font-mono tracking-tight">{member.phone}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-[13px]">
+                                    <div className="flex items-center gap-2 text-slate-500 font-medium">
+                                        <div className="w-6 flex justify-center"><Image src="https://cdn-icons-png.flaticon.com/128/0/747.png" alt="" width={14} height={14} className="opacity-40" /></div>
+                                        Platform
+                                    </div>
+                                    <span className="font-semibold text-slate-700">{member.platform}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-[13px]">
+                                    <div className="flex items-center gap-2 text-slate-500 font-medium">
+                                        <div className="w-6 flex justify-center"><Image src="https://cdn-icons-png.flaticon.com/128/2693/2693507.png" alt="" width={14} height={14} className="opacity-40" /></div>
+                                        Kayıt
+                                    </div>
+                                    <span className="font-semibold text-slate-700">{member.registeredDate}</span>
+                                </div>
                             </div>
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-slate-500 flex items-center gap-2"><Image src={member.platform === 'iOS' ? ICONS.ios : ICONS.android} alt="" width={14} height={14} className="opacity-60" /> Platform</span>
-                                <span className="font-medium text-slate-800">{member.platform}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-slate-500 flex items-center gap-2"><Image src={ICONS.calendar} alt="" width={14} height={14} className="opacity-60" /> Kayıt</span>
-                                <span className="font-medium text-slate-800">{member.registeredDate}</span>
-                            </div>
-                        </div>
 
-                        <div className="mt-auto pt-4 flex gap-2">
-                            <button onClick={() => router.back()} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors">
-                                Geri Dön
-                            </button>
-                            <button className="flex-1 py-2.5 rounded-xl bg-slate-800 text-white text-sm font-semibold hover:bg-slate-900 transition-colors shadow-lg shadow-slate-200">
-                                Düzenle
-                            </button>
+                            {/* Actions Buttons */}
+                            <div className="mt-auto grid grid-cols-2 gap-3">
+                                <button onClick={() => router.back()} className="py-3 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-all active:scale-95">
+                                    Geri Dön
+                                </button>
+                                <button className="py-3 rounded-xl bg-[#1E293B] text-white text-sm font-bold hover:bg-[#0F172A] transition-all active:scale-95 shadow-lg shadow-slate-900/10">
+                                    Düzenle
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                    {/* KEY STATS GRID */}
-                    <div className="flex-grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {/* Stat 1: LTV */}
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600"><Image src={ICONS.money} alt="" width={20} height={20} /></div>
-                                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">+12%</span>
+                    {/* 2. STAT CARDS (RIGHT - 4 Vertical Cards) */}
+                    <div className="col-span-12 xl:col-span-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+                        {/* 1. LTV Card */}
+                        <div className="bg-white rounded-[20px] border border-slate-200 p-5 shadow-sm flex flex-col justify-between min-h-[180px] hover:border-emerald-200 transition-colors group">
+                            <div className="flex justify-between items-start">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+                                    <Image src="https://cdn-icons-png.flaticon.com/128/2454/2454282.png" alt="" width={20} height={20} className="group-hover:scale-110 transition-transform" />
+                                </div>
+                                <span className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-2 py-1 rounded-full">+12%</span>
                             </div>
                             <div>
-                                <p className="text-slate-500 text-sm font-medium">Toplam Harcama (LTV)</p>
-                                <h3 className="text-2xl font-bold text-slate-800 mt-1">₺{totalSpent.toLocaleString('tr-TR')}</h3>
+                                <p className="text-slate-500 text-[11px] font-semibold uppercase tracking-wide mb-1">Toplam Harcama (LTV)</p>
+                                <h3 className="text-2xl font-black text-slate-800 tracking-tight">₺{totalSpent.toLocaleString('tr-TR')}</h3>
                             </div>
                         </div>
 
-                        {/* Stat 2: Current Sub */}
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-2 bg-blue-50 rounded-lg text-blue-600"><Image src={ICONS.card} alt="" width={20} height={20} /></div>
-                                <span className={`text-xs font-bold px-2 py-1 rounded-full ${member.autoRenew ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
+                        {/* 2. Subscription Card */}
+                        <div className="bg-white rounded-[20px] border border-slate-200 p-5 shadow-sm flex flex-col justify-between min-h-[180px] hover:border-blue-200 transition-colors group">
+                            <div className="flex justify-between items-start">
+                                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                                    <Image src="https://cdn-icons-png.flaticon.com/128/8983/8983163.png" alt="" width={20} height={20} className="group-hover:scale-110 transition-transform" />
+                                </div>
+                                <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${member.autoRenew ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
                                     {member.autoRenew ? 'Otomatik' : 'Manuel'}
                                 </span>
                             </div>
-                            <div>
-                                <p className="text-slate-500 text-sm font-medium">Mevcut Paket</p>
-                                <h3 className="text-xl font-bold text-slate-800 mt-1 truncate">{member.package?.name || 'Paket Yok'}</h3>
-                                <p className="text-xs text-slate-400 mt-1">Bitiş: {member.expirationDate || '-'}</p>
+                            <div className="space-y-1">
+                                <p className="text-slate-500 text-[11px] font-semibold uppercase tracking-wide">Mevcut Paket</p>
+                                <h3 className="text-lg font-bold text-slate-800 leading-tight truncate">{member.package?.name || 'Paket Yok'}</h3>
+                                <p className="text-[11px] text-slate-400 font-medium">Bitiş: {member.expirationDate || '-'}</p>
                             </div>
                         </div>
 
-                        {/* Stat 3: Segment */}
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-2 bg-purple-50 rounded-lg text-purple-600"><Image src={ICONS.activity} alt="" width={20} height={20} /></div>
-                            </div>
-                            <div>
-                                <p className="text-slate-500 text-sm font-medium">Kullanıcı Segmenti</p>
-                                <div className="mt-1">
-                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-sm font-bold border ${SEGMENT_CONFIG[member.segment]?.color || 'bg-slate-100 text-slate-700'}`}>
-                                        {SEGMENT_CONFIG[member.segment]?.label || member.segment}
-                                    </span>
+                        {/* 3. Segment Card */}
+                        <div className="bg-white rounded-[20px] border border-slate-200 p-5 shadow-sm flex flex-col justify-between min-h-[180px] hover:border-purple-200 transition-colors group">
+                            <div className="flex justify-between items-start">
+                                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center">
+                                    <Image src="https://cdn-icons-png.flaticon.com/128/3524/3524752.png" alt="" width={20} height={20} className="group-hover:scale-110 transition-transform opacity-70" />
                                 </div>
                             </div>
+                            <div>
+                                <p className="text-slate-500 text-[11px] font-semibold uppercase tracking-wide mb-2">Kullanıcı Segmenti</p>
+                                <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold border ${SEGMENT_CONFIG[member.segment]?.color || 'bg-slate-100 text-slate-700'}`}>
+                                    {SEGMENT_CONFIG[member.segment]?.label || member.segment}
+                                </span>
+                            </div>
                         </div>
 
-                        {/* Stat 4: Last Seen */}
-                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-2 bg-orange-50 rounded-lg text-orange-600"><Image src={ICONS.history} alt="" width={20} height={20} /></div>
+                        {/* 4. Last Seen Card */}
+                        <div className="bg-white rounded-[20px] border border-slate-200 p-5 shadow-sm flex flex-col justify-between min-h-[180px] hover:border-orange-200 transition-colors group">
+                            <div className="flex justify-between items-start">
+                                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center">
+                                    <Image src="https://cdn-icons-png.flaticon.com/128/992/992700.png" alt="" width={20} height={20} className="group-hover:scale-110 transition-transform" />
+                                </div>
                             </div>
                             <div>
-                                <p className="text-slate-500 text-sm font-medium">Son Görülme</p>
-                                <h3 className="text-lg font-bold text-slate-800 mt-1">{member.lastActivity}</h3>
-                                <p className="text-xs text-slate-400 mt-1">IP: {USER_SESSIONS[0].ipAddress}</p>
+                                <p className="text-slate-500 text-[11px] font-semibold uppercase tracking-wide mb-1">Son Görülme</p>
+                                <h3 className="text-lg font-bold text-slate-800">{member.lastActivity}</h3>
+                                <p className="text-[10px] text-slate-400 font-mono mt-1 w-full truncate" title={USER_SESSIONS[0]?.ipAddress}>IP: {USER_SESSIONS[0]?.ipAddress}</p>
                             </div>
                         </div>
+
                     </div>
                 </div>
 
@@ -395,8 +411,8 @@ export default function MemberDetailPage() {
                                                     <td className="px-6 py-4 text-right text-sm font-bold text-slate-800">₺{item.amount}</td>
                                                     <td className="px-8 py-4 text-right">
                                                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${item.status === 'success' ? 'bg-green-50 text-green-700 border border-green-200' :
-                                                                item.status === 'failed' ? 'bg-red-50 text-red-700 border border-red-200' :
-                                                                    'bg-slate-100 text-slate-700 border border-slate-200'
+                                                            item.status === 'failed' ? 'bg-red-50 text-red-700 border border-red-200' :
+                                                                'bg-slate-100 text-slate-700 border border-slate-200'
                                                             }`}>
                                                             {item.status.toUpperCase()}
                                                         </span>
@@ -522,8 +538,8 @@ function TabButton({ id, label, icon, active, onClick, count }: any) {
         <button
             onClick={onClick}
             className={`flex items-center gap-2 px-6 py-4 text-sm font-semibold border-b-2 transition-all min-w-max ${active
-                    ? 'border-blue-600 text-blue-600 bg-white'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100/50'
+                ? 'border-blue-600 text-blue-600 bg-white'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100/50'
                 }`}
         >
             <Image src={icon} alt="" width={18} height={18} className={active ? 'opacity-100' : 'opacity-60 grayscale'} />
