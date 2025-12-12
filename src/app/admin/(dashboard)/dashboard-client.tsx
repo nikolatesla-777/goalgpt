@@ -427,6 +427,7 @@ export default function DashboardClient() {
     const itemsPerPage = 15
 
     const [mounted, setMounted] = useState(false)
+    const [isDetailView, setIsDetailView] = useState(false)
 
     // Lazy load heavy components
     useEffect(() => {
@@ -467,7 +468,13 @@ export default function DashboardClient() {
         { id: 'totalUsers', title: 'Toplam Üye', data: FAKE_METRICS.totalUsers, icon: Users2, color: 'gray', row: 3 },
     ]
 
-    const handleMetricChange = (metricId: string) => { setActiveMetric(metricId); setCurrentPage(1) }
+    const handleMetricChange = (metricId: string) => {
+        setActiveMetric(metricId);
+        setCurrentPage(1);
+        setIsDetailView(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    const handleBackToDashboard = () => { setIsDetailView(false) }
     const goToDetail = (userId: string) => router.push(`/admin/members/detail/${userId}`)
     const handleAction = (action: string, user: User) => { console.log(`Action: ${action} for user: ${user.name}`); setActionMenuId(null) }
 
@@ -615,82 +622,109 @@ export default function DashboardClient() {
                 </div>
             </div>
 
-            {/* Metric Rows */}
-            {[1, 2, 3].map(row => (
-                <div key={row}>
-                    <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${row === 1 ? 'bg-emerald-500 animate-pulse' : row === 2 ? 'bg-blue-500' : 'bg-yellow-500'}`}></span>
-                        {row === 1 ? 'Finansal Sağlık' : row === 2 ? 'Edinim & Büyüme' : 'Tutundurma & Kayıp'}
-                    </h2>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                        {allMetrics.filter(m => m.row === row).map(m => <MetricCard key={m.id} {...m} active={activeMetric === m.id} onClick={() => handleMetricChange(m.id)} />)}
-                    </div>
-                </div>
-            ))}
-
-            {/* AI Predictions Removed as per user request */}
-
-            {/* Multi-Line Chart */}
-            <motion.div key={activeMetric + '-chart'} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-lg font-bold text-slate-800">{activeMetricInfo?.title} Trendi</h2>
-                    <div className="flex items-center gap-4 text-xs">
-                        <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-slate-400"></span> Toplam</span>
-                        <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-blue-500"></span> iOS</span>
-                        <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-green-500"></span> Android</span>
-                    </div>
-                </div>
-                <div className="h-[220px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                            <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={40} />
-                            <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px' }} labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }} />
-                            <Line type="monotone" dataKey="total" stroke="#64748b" strokeWidth={2} dot={false} name="Toplam" strokeDasharray="5 5" />
-                            <Line type="monotone" dataKey="iOS" stroke="#3b82f6" strokeWidth={2.5} dot={{ fill: '#3b82f6', r: 3 }} activeDot={{ r: 5 }} name="iOS" />
-                            <Line type="monotone" dataKey="Android" stroke="#22c55e" strokeWidth={2.5} dot={{ fill: '#22c55e', r: 3 }} activeDot={{ r: 5 }} name="Android" />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </div>
-            </motion.div>
-
-            {/* Detail Table */}
-            {tableConfig && (
-                <motion.div key={activeMetric + '-table'} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm">
-                    <div className="p-5 border-b border-slate-200 bg-slate-50">
-                        <div className="flex items-center justify-between mb-2">
-                            <h2 className="text-base font-bold text-slate-800">{tableConfig.title}</h2>
-                            <div className="flex items-center gap-3">
-                                <button onClick={exportToExcel} className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-colors"><Download size={16} />Excel İndir</button>
-                                <span className="text-xs bg-slate-200 text-slate-600 px-3 py-1.5 rounded-full font-semibold">{allUsers.length} kayıt</span>
+            {/* Metric Rows or Detail View */}
+            {!isDetailView ? (
+                // DASHBOARD OVERVIEW MODE
+                <div className="space-y-8 animate-in fade-in duration-500">
+                    {[1, 2, 3].map(row => (
+                        <div key={row}>
+                            <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full ${row === 1 ? 'bg-emerald-500 animate-pulse' : row === 2 ? 'bg-blue-500' : 'bg-yellow-500'}`}></span>
+                                {row === 1 ? 'Finansal Sağlık' : row === 2 ? 'Edinim & Büyüme' : 'Tutundurma & Kayıp'}
+                            </h2>
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                                {allMetrics.filter(m => m.row === row).map(m => (
+                                    <MetricCard
+                                        key={m.id}
+                                        {...m}
+                                        active={false} // In overview, no single card is 'active' in the old sense
+                                        onClick={() => handleMetricChange(m.id)}
+                                    />
+                                ))}
                             </div>
                         </div>
-                        <p className="text-sm text-slate-500 leading-relaxed">{tableConfig.caption}</p>
-                    </div>
+                    ))}
+                </div>
+            ) : (
+                // DETAIL FOCUS MODE
+                <div className="space-y-6 animate-in slide-in-from-right-8 duration-500">
+                    <button
+                        onClick={handleBackToDashboard}
+                        className="group flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm hover:shadow"
+                    >
+                        <ChevronLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
+                        Panela Dön
+                    </button>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-slate-50 border-b-2 border-slate-200">
-                                <tr>{tableConfig.columns.map(col => (<th key={col.key} className="px-4 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap" style={{ width: col.width }}>{col.label}</th>))}</tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {paginatedUsers.map((user, i) => (
-                                    <tr key={user.id} className="hover:bg-blue-50 transition-colors cursor-pointer" onClick={() => goToDetail(user.id)}>
-                                        {tableConfig.columns.map(col => (<td key={col.key} className="px-4 py-4 text-sm whitespace-nowrap" onClick={col.key === 'actions' ? (e) => e.stopPropagation() : undefined}>{renderCell(user, col.key, i)}</td>))}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {totalPages > 1 && (
-                        <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-                            <p className="text-sm text-slate-500">{((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, allUsers.length)} / {allUsers.length} kayıt</p>
-                            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+                    {activeMetricInfo && (
+                        <div className="max-w-md">
+                            <MetricCard {...activeMetricInfo} active={true} />
                         </div>
                     )}
-                </motion.div>
+
+                    {/* Multi-Line Chart */}
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-lg font-bold text-slate-800">{activeMetricInfo?.title} Trendi</h2>
+                            <div className="flex items-center gap-4 text-xs">
+                                <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-slate-400"></span> Toplam</span>
+                                <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-blue-500"></span> iOS</span>
+                                <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-green-500"></span> Android</span>
+                            </div>
+                        </div>
+                        <div className="h-[220px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={chartData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                                    <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={40} />
+                                    <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px' }} labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }} />
+                                    <Line type="monotone" dataKey="total" stroke="#64748b" strokeWidth={2} dot={false} name="Toplam" strokeDasharray="5 5" />
+                                    <Line type="monotone" dataKey="iOS" stroke="#3b82f6" strokeWidth={2.5} dot={{ fill: '#3b82f6', r: 3 }} activeDot={{ r: 5 }} name="iOS" />
+                                    <Line type="monotone" dataKey="Android" stroke="#22c55e" strokeWidth={2.5} dot={{ fill: '#22c55e', r: 3 }} activeDot={{ r: 5 }} name="Android" />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </motion.div>
+
+                    {/* Detail Table */}
+                    {tableConfig && (
+                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm">
+                            <div className="p-5 border-b border-slate-200 bg-slate-50">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h2 className="text-base font-bold text-slate-800">{tableConfig.title}</h2>
+                                    <div className="flex items-center gap-3">
+                                        <button onClick={exportToExcel} className="hidden sm:flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-colors"><Download size={16} />Excel İndir</button>
+                                        <span className="text-xs bg-slate-200 text-slate-600 px-3 py-1.5 rounded-full font-semibold">{allUsers.length} kayıt</span>
+                                    </div>
+                                </div>
+                                <p className="text-sm text-slate-500 leading-relaxed">{tableConfig.caption}</p>
+                            </div>
+
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-slate-50 border-b-2 border-slate-200">
+                                        <tr>{tableConfig.columns.map(col => (<th key={col.key} className="px-4 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap" style={{ width: col.width }}>{col.label}</th>))}</tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {paginatedUsers.map((user, i) => (
+                                            <tr key={user.id} className="hover:bg-blue-50 transition-colors cursor-pointer" onClick={() => goToDetail(user.id)}>
+                                                {tableConfig.columns.map(col => (<td key={col.key} className="px-4 py-4 text-sm whitespace-nowrap" onClick={col.key === 'actions' ? (e) => e.stopPropagation() : undefined}>{renderCell(user, col.key, i)}</td>))}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {totalPages > 1 && (
+                                <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+                                    <p className="text-sm text-slate-500">{((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, allUsers.length)} / {allUsers.length} kayıt</p>
+                                    <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+                                </div>
+                            )}
+                        </motion.div>
+                    )}
+                </div>
             )}
 
             {actionMenuId && <div className="fixed inset-0 z-40" onClick={() => setActionMenuId(null)} />}
