@@ -5,11 +5,20 @@ import { createClient } from '@supabase/supabase-js';
 // Debug environment variable
 console.log('Stripe Key Status:', process.env.STRIPE_SECRET_KEY ? 'Present' : 'Missing');
 
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-    apiVersion: '2025-11-17.clover', // Use latest or matching version
-    typescript: true,
-});
+// Lazy initialization wrapper
+let stripeInstance: Stripe | null = null;
+const getStripe = () => {
+    if (!stripeInstance) {
+        if (!process.env.STRIPE_SECRET_KEY) {
+            throw new Error('Stripe Secret Key is missing. Please check your .env.local or Vercel Environment Variables.');
+        }
+        stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
+            apiVersion: '2025-11-17.clover', // Use latest or matching version
+            typescript: true,
+        });
+    }
+    return stripeInstance;
+};
 
 // Initialize Supabase Admin for DB updates
 const supabaseAdmin = createClient(
@@ -36,6 +45,7 @@ export class StripeService {
             }
 
             // 2. Create new customer in Stripe
+            const stripe = getStripe();
             const customer = await stripe.customers.create({
                 email: email,
                 metadata: {
@@ -69,6 +79,7 @@ export class StripeService {
         mode?: 'payment' | 'subscription';
     }) {
         const customerId = await this.createCustomer(params.userId, params.email);
+        const stripe = getStripe();
 
         const session = await stripe.checkout.sessions.create({
             customer: customerId,
@@ -103,6 +114,7 @@ export class StripeService {
             throw new Error('No Stripe customer found for this user.');
         }
 
+        const stripe = getStripe();
         const session = await stripe.billingPortal.sessions.create({
             customer: profile.stripe_customer_id,
             return_url: returnUrl,
@@ -115,6 +127,6 @@ export class StripeService {
      * Verify Webhook Signature
      */
     static constructEvent(payload: string, signature: string, secret: string) {
-        return stripe.webhooks.constructEvent(payload, signature, secret);
+        return getStripe().webhooks.constructEvent(payload, signature, secret);
     }
 }
