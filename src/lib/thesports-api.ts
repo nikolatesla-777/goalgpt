@@ -8,7 +8,7 @@ if (!API_USER || !API_SECRET) {
     console.warn('⚠️ TheSports API credentials missing in environment variables.');
 }
 
-interface FixtureDto {
+export interface FixtureDto {
     id: string;
     home_team_id: string;
     away_team_id: string;

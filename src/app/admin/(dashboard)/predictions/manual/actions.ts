@@ -1,6 +1,7 @@
 'use server'
 
-import { getLiveMatches, TheSportsMatch } from '@/lib/thesports-api'
+import { TheSportsApi } from '@/lib/thesports-api'
+import type { FixtureDto as TheSportsMatch } from '@/lib/thesports-api'
 
 // Re-export types for client components
 export type { TheSportsMatch }
@@ -163,7 +164,7 @@ export async function fetchLiveMatches(): Promise<TheSportsMatch[]> {
     }
 
     try {
-        const matches = await getLiveMatches()
+        const matches = await TheSportsApi.getLiveMatches()
         return matches.length > 0 ? matches : sampleLiveMatches
     } catch (error) {
         console.error('Error fetching live matches:', error)
