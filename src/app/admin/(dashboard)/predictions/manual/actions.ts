@@ -118,17 +118,21 @@ export async function fetchLiveMatchesSimplified(): Promise<SimplifiedMatch[]> {
 
     console.log('[Mapping] Processing', matches.length, 'matches from API')
 
-    // 1. Collect all unique team IDs
+    // 1. Collect all unique team IDs and competition IDs
     const teamIds = new Set<string>()
+    const competitionIds = new Set<string>()
+
     matches.forEach((m: any) => {
         if (m.home_team_id) teamIds.add(m.home_team_id)
         if (m.away_team_id) teamIds.add(m.away_team_id)
+        if (m.competition_id) competitionIds.add(m.competition_id)
     })
 
-    console.log('[Mapping] Fetching', teamIds.size, 'unique teams from database')
+    console.log('[Mapping] Fetching', teamIds.size, 'teams and', competitionIds.size, 'competitions')
 
-    // 2. Batch fetch team data from Supabase
+    // 2. Batch fetch team and competition data from Supabase
     const teamMap = new Map<string, { name: string, logo: string }>()
+    const competitionMap = new Map<string, { name: string, country_id: string }>()
 
     try {
         const { createClient } = await import('@supabase/supabase-js')
@@ -137,7 +141,7 @@ export async function fetchLiveMatchesSimplified(): Promise<SimplifiedMatch[]> {
             process.env.SUPABASE_SERVICE_ROLE_KEY!
         )
 
-        // Fetch teams in batches of 500 (Supabase limit)
+        // Fetch teams in batches of 500
         const teamIdArray = Array.from(teamIds)
         const batchSize = 500
 
@@ -155,12 +159,28 @@ export async function fetchLiveMatchesSimplified(): Promise<SimplifiedMatch[]> {
             }
         }
 
-        console.log('[Mapping] Retrieved', teamMap.size, 'team names from database')
+        // Fetch competitions
+        const compIdArray = Array.from(competitionIds)
+        for (let i = 0; i < compIdArray.length; i += batchSize) {
+            const batch = compIdArray.slice(i, i + batchSize)
+            const { data: comps, error } = await supabase
+                .from('ts_competitions')
+                .select('external_id, name, country_id')
+                .in('external_id', batch)
+
+            if (!error && comps) {
+                comps.forEach(c => {
+                    competitionMap.set(c.external_id, { name: c.name, country_id: c.country_id || '' })
+                })
+            }
+        }
+
+        console.log('[Mapping] Retrieved', teamMap.size, 'teams and', competitionMap.size, 'competitions')
     } catch (e) {
-        console.error('[Mapping] Failed to fetch teams from DB:', e)
+        console.error('[Mapping] Failed to fetch from DB:', e)
     }
 
-    // 3. Map matches with team names
+    // 3. Map matches with team and competition names
     return matches.map((m: any) => {
         try {
             const rawTime = m.match_time || m.time || Math.floor(Date.now() / 1000)
@@ -172,6 +192,7 @@ export async function fetchLiveMatchesSimplified(): Promise<SimplifiedMatch[]> {
             // Get team info from our cache map
             const homeTeamInfo = teamMap.get(m.home_team_id)
             const awayTeamInfo = teamMap.get(m.away_team_id)
+            const competitionInfo = competitionMap.get(m.competition_id)
 
             return {
                 id: m.id || `unknown-${Math.random()}`,
@@ -183,7 +204,7 @@ export async function fetchLiveMatchesSimplified(): Promise<SimplifiedMatch[]> {
                 awayScore,
                 minute: m.minute || 0,
                 status: mapStatusById(statusId),
-                league: m.competition?.name || m.competition_id?.substring(0, 10) || 'League',
+                league: competitionInfo?.name || m.competition?.name || m.competition_id?.substring(0, 10) || 'League',
                 leagueFlag: m.country?.name || '',
                 startTime,
                 rawTime,
