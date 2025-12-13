@@ -13,7 +13,7 @@ export class AutoCapperService {
      * Main entry point: Process all pending predictions and update their status
      */
     static async processPendingPredictions() {
-        const supabase = createClient()
+        const supabase = await createClient()
 
         // 1. Fetch pending predictions that are linked to a match
         const { data: predictions, error } = await supabase
