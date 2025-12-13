@@ -67,166 +67,150 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
                 {/* Header & Stats */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                        <div className="bg-emerald-100 p-3 rounded-xl border border-emerald-200">
-                            <Activity className="w-8 h-8 text-emerald-600" />
-                        </div>
-                        <div>
-                            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                                LiveScore Center
-                                {isRefreshing && <RefreshCw className="w-4 h-4 text-emerald-500 animate-spin" />}
-                            </h1>
-                            <p className="text-sm text-slate-500">
-                                Son güncelleme: {lastUpdated.toLocaleTimeString()} • Otomatik yenilenir
-                            </p>
-                        </div>
-                    </div>
+                        <div className="min-h-screen bg-[#f2f2f2] font-sans text-[13px]">
+                            {/* Top Bar / Filters */}
+                            <div className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-10">
+                                <div className="max-w-4xl mx-auto px-4 h-12 flex items-center justify-between">
+                                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                                        {(['all', 'live', 'upcoming', 'finished'] as const).map((status) => (
+                                            <button
+                                                key={status}
+                                                onClick={() => setStatusFilter(status)}
+                                                className={`px-3 py-1 rounded-sm text-xs font-bold uppercase tracking-tight transition-colors whitespace-nowrap ${statusFilter === status
+                                                        ? 'bg-slate-800 text-white'
+                                                        : 'text-slate-600 hover:bg-slate-100'
+                                                    }`}
+                                            >
+                                                {status === 'all' ? 'HEPSİ' : status === 'live' ? `CANLI (${liveCount})` : status === 'upcoming' ? 'BAŞLAMADI' : 'BİTMİŞ'}
+                                            </button>
+                                        ))}
+                                    </div>
 
-                    <div className="flex gap-4">
-                        <div className="bg-white border text-center border-slate-200 px-6 py-3 rounded-xl shadow-sm">
-                            <span className="block text-2xl font-bold text-slate-800">{matches.length}</span>
-                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Toplam Maç</span>
-                        </div>
-                        <div className="bg-white border text-center border-emerald-200 px-6 py-3 rounded-xl shadow-sm">
-                            <span className="block text-2xl font-bold text-emerald-600">{liveCount}</span>
-                            <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wide">Canlı Maç</span>
-                        </div>
-                    </div>
-                </div>
+                                    <div className="flex items-center bg-slate-100 rounded-md px-2 py-1 ml-4 ring-1 ring-slate-200">
+                                        <span className="text-slate-400 mr-2">🔍</span>
+                                        <input
+                                            type="text"
+                                            placeholder="Ara..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            className="bg-transparent border-none outline-none text-xs w-32 md:w-48 placeholder:text-slate-400"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
 
-                {/* Filters */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-                    <div className="relative w-full md:w-96">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="Takım veya lig ara..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                        />
-                    </div>
+                            {/* Main Content */}
+                            <div className="max-w-4xl mx-auto p-0 md:p-4 space-y-4">
 
-                    <div className="flex bg-slate-100 p-1 rounded-xl">
-                        {(['all', 'live', 'upcoming', 'finished'] as const).map((status) => (
-                            <button
-                                key={status}
-                                onClick={() => setStatusFilter(status)}
-                                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all capitalization ${statusFilter === status
-                                    ? 'bg-white text-slate-800 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-700'
-                                    }`}
-                            >
-                                {status === 'all' ? 'Tümü' : status === 'live' ? 'Canlı' : status === 'upcoming' ? 'Bekliyor' : 'Bitmiş'}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                                {/* Empty State */}
+                                {Object.keys(groupedMatches).length === 0 && (
+                                    <div className="bg-white rounded-lg p-12 text-center text-slate-400 text-sm shadow-sm border border-slate-200 mt-8">
+                                        Aradığınız kriterlere uygun maç bulunamadı.
+                                    </div>
+                                )}
 
-                {/* Table */}
-                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                    <table className="w-full">
-                        <thead className="bg-slate-50 border-b border-slate-200">
-                            <tr>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Durum</th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Lig</th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Tarih</th>
-                                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wide">Ev Sahibi</th>
-                                <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wide">Skor</th>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Deplasman</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {filteredMatches.map((match) => {
-                                const isLive = match.status === 'live' || match.status === 'ht'
-                                return (
-                                    <tr
-                                        key={match.id}
-                                        onClick={() => window.location.href = `/admin/livescore/${match.id}`}
-                                        className="hover:bg-blue-50 transition-colors cursor-pointer group"
-                                    >
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className={`
-                                            inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border w-fit
-                                            ${isLive
-                                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                                                    : match.status === 'ns'
-                                                        ? 'bg-blue-50 text-blue-600 border-blue-200'
-                                                        : 'bg-slate-100 text-slate-500 border-slate-200'}
-                                        `}>
-                                                {isLive && (
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                )}
-                                                {isLive
-                                                    ? (match.status === 'ht' ? 'İY' : `${match.minute}'`)
-                                                    : match.status === 'ns' ? 'Başlamadı' : 'MS'}
-                                            </div>
-                                        </td>
+                                {/* League Groups */}
+                                {Object.entries(groupedMatches).map(([marketKey, leagueMatches]) => {
+                                    const [leagueName, countryName] = marketKey.split('|')
 
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-lg">{match.leagueFlag}</span>
-                                                <span className="text-sm font-semibold text-slate-700">{match.league}</span>
-                                            </div>
-                                        </td>
-
-                                        <td className="px-6 py-4">
-                                            <div className="text-xs text-slate-500 font-mono flex items-center gap-1">
-                                                <Clock className="w-3 h-3 opacity-50" />
-                                                {match.startTime}
-                                            </div>
-                                        </td>
-
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex items-center justify-end gap-3">
-                                                <span className="text-sm font-semibold text-slate-700">{match.homeTeam}</span>
-                                                {match.homeLogo ? (
-                                                    <img src={match.homeLogo} alt="" className="w-6 h-6 object-contain" />
-                                                ) : (
-                                                    <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">
-                                                        {match.homeTeam.substring(0, 1)}
+                                    return (
+                                        <div key={marketKey} className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                                            {/* League Header */}
+                                            <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    {/* Fake Flag based on country char or emoji logic if strictly needed, 
+                                         but using text for now as cleaner */}
+                                                    {leagueMatches[0]?.leagueFlag && (
+                                                        <span className="text-lg leading-none grayscale opacity-80">{leagueMatches[0].leagueFlag}</span>
+                                                    )}
+                                                    <div className="flex flex-col md:flex-row md:items-baseline gap-1">
+                                                        <span className="font-bold text-slate-700 text-xs uppercase">{countryName}</span>
+                                                        <span className="text-slate-400 text-[11px] hidden md:inline">•</span>
+                                                        <span className="font-semibold text-slate-600 text-xs">{leagueName}</span>
                                                     </div>
-                                                )}
+                                                </div>
+                                                <a href="#" className="text-[11px] text-blue-600 hover:underline">Puan Durumu</a>
                                             </div>
-                                        </td>
 
-                                        <td className="px-6 py-4 text-center">
-                                            <div className={`
-                                            inline-block px-4 py-1.5 rounded-lg border font-mono font-bold text-sm shadow-sm
-                                            ${match.status === 'live'
-                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                    : 'bg-white text-slate-600 border-slate-200'}
-                                        `}>
-                                                {match.homeScore} - {match.awayScore}
+                                            {/* Match List */}
+                                            <div className="divide-y divide-slate-100">
+                                                {leagueMatches.map(match => {
+                                                    const isLive = match.status === 'live' || match.status === 'ht'
+                                                    const isFinished = match.status === 'ft'
+                                                    const isNotStarted = match.status === 'ns'
+
+                                                    return (
+                                                        <div
+                                                            key={match.id}
+                                                            onClick={() => window.location.href = `/admin/livescore/${match.id}`}
+                                                            className="group flex items-center h-16 md:h-12 hover:bg-[#fff9e6] cursor-pointer transition-colors px-2 md:px-4"
+                                                        >
+                                                            {/* Star / Time / Status */}
+                                                            <div className="w-16 flex flex-col items-center justify-center gap-0.5 text-[11px] border-r border-transparent md:border-slate-50 mr-2 md:mr-4 shrink-0">
+                                                                {isLive ? (
+                                                                    <span className="text-[#e21b23] font-bold animate-pulse">
+                                                                        {match.status === 'ht' ? 'İY' : `${match.minute}'`}
+                                                                    </span>
+                                                                ) : isFinished ? (
+                                                                    <span className="text-slate-500 font-medium">Bitti</span>
+                                                                ) : (
+                                                                    <span className="text-slate-800 font-medium">{match.startTime.split(' ')[1]?.slice(0, 5)}</span>
+                                                                )}
+
+                                                                {/* Optional Date for NS if different day, hiding for now as 'Today' is context */}
+                                                            </div>
+
+                                                            {/* Teams & Score */}
+                                                            <div className="flex-1 grid grid-cols-[1fr_auto_1fr] items-center gap-2 md:gap-8">
+
+                                                                {/* Home */}
+                                                                <div className={`flex items-center justify-end gap-2 text-right ${isLive || isFinished ? 'font-bold text-slate-800' : 'text-slate-600'}`}>
+                                                                    <span className="hidden md:inline truncate">{match.homeTeam}</span>
+                                                                    <span className="md:hidden truncate">{match.homeTeam.substring(0, 12)}</span>
+                                                                    {match.homeLogo && <img src={match.homeLogo} alt="" className="w-5 h-5 object-contain" />}
+                                                                </div>
+
+                                                                {/* Score Box */}
+                                                                <div className="w-16 text-center shrink-0 flex items-center justify-center gap-1 font-bold text-sm">
+                                                                    {isNotStarted ? (
+                                                                        <span className="text-slate-400 text-xs">-</span>
+                                                                    ) : (
+                                                                        <>
+                                                                            <span className={`${isLive ? 'text-[#e21b23]' : 'text-slate-800'}`}>{match.homeScore}</span>
+                                                                            <span className="text-slate-300 mx-[1px]">-</span>
+                                                                            <span className={`${isLive ? 'text-[#e21b23]' : 'text-slate-800'}`}>{match.awayScore}</span>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Away */}
+                                                                <div className={`flex items-center justify-start gap-2 text-left ${isLive || isFinished ? 'font-bold text-slate-800' : 'text-slate-600'}`}>
+                                                                    {match.awayLogo && <img src={match.awayLogo} alt="" className="w-5 h-5 object-contain" />}
+                                                                    <span className="hidden md:inline truncate">{match.awayTeam}</span>
+                                                                    <span className="md:hidden truncate">{match.awayTeam.substring(0, 12)}</span>
+                                                                </div>
+
+                                                            </div>
+
+                                                            {/* Half Time (Hidden on mobile usually or subtle) */}
+                                                            <div className="hidden md:flex w-16 items-center justify-end text-[10px] text-slate-400 shrink-0 ml-4 font-normal">
+                                                                {!isNotStarted && <span>(0-0)</span>}
+                                                            </div>
+
+                                                            {/* Arrow visual on hover */}
+                                                            <div className="w-6 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <span className="text-slate-400">›</span>
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
                                             </div>
-                                        </td>
+                                        </div>
+                                    )
+                                })}
 
-                                        <td className="px-6 py-4 text-left">
-                                            <div className="flex items-center justify-start gap-3">
-                                                {match.awayLogo ? (
-                                                    <img src={match.awayLogo} alt="" className="w-6 h-6 object-contain" />
-                                                ) : (
-                                                    <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">
-                                                        {match.awayTeam.substring(0, 1)}
-                                                    </div>
-                                                )}
-                                                <span className="text-sm font-semibold text-slate-700">{match.awayTeam}</span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )
-                            })}
-
-                            {filteredMatches.length === 0 && (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                                        Maç bulunamadı.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    )
+                                <div className="h-8"></div>
+                            </div>
+                        </div>
+                        )
 }
