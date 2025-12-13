@@ -42,10 +42,6 @@ const nextConfig = {
             },
         ]
     },
-    // Ignore Build Errors to unblock deployment
-    eslint: {
-        ignoreDuringBuilds: true,
-    },
     typescript: {
         ignoreBuildErrors: true,
     },
