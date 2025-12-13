@@ -15,7 +15,7 @@ export default async function LiveScorePage() {
     const sortedMatches = matches.sort((a, b) => {
         if (a.status === 'live' && b.status !== 'live') return -1
         if (a.status !== 'live' && b.status === 'live') return 1
-        return b.startTime - a.startTime
+        return b.rawTime - a.rawTime
     })
 
     return (

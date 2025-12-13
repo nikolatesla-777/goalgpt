@@ -85,6 +85,7 @@ export interface SimplifiedMatch {
     league: string
     leagueFlag: string
     startTime: string
+    rawTime: number
 }
 
 export async function fetchLiveMatchesSimplified(): Promise<SimplifiedMatch[]> {
@@ -101,6 +102,7 @@ export async function fetchLiveMatchesSimplified(): Promise<SimplifiedMatch[]> {
         league: m.competition?.name || 'Unknown',
         leagueFlag: m.country?.name || '',
         startTime: new Date(m.time * 1000).toLocaleString('tr-TR'),
+        rawTime: m.time,
     }))
 }
 
