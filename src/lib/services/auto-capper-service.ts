@@ -99,10 +99,10 @@ export class AutoCapperService {
     static evaluatePrediction(predictionText: string, match: any): 'won' | 'lost' | null {
         if (!predictionText) return null
 
-        const homeScore = match.scores?.home ?? match.home_score ?? 0 // Handle different API shapes if needed
-        const awayScore = match.scores?.away ?? match.away_score ?? 0
+        const homeScore = match.scores?.home ?? 0
+        const awayScore = match.scores?.away ?? 0
         const totalGoals = homeScore + awayScore
-        const statusId = match.status?.id ?? match.status_id // 1=NotStarted, 8=Finished, etc.
+        const statusId = match.status?.id // 1=NotStarted, 8=Finished, etc.
 
         // Status mapping (TheSports usually: 1=NotStarted, 2=1H, 3=HT, 4=2H, 5=ET, 7=Pen, 8=End)
         // Legacy code used: 2 (1H), 3 (HT), 8 (End)
