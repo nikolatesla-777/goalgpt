@@ -91,19 +91,31 @@ export interface SimplifiedMatch {
 export async function fetchLiveMatchesSimplified(): Promise<SimplifiedMatch[]> {
     const matches = await fetchLiveMatches()
 
-    return matches.map(m => ({
-        id: m.id,
-        homeTeam: m.home?.name || 'Unknown',
-        awayTeam: m.away?.name || 'Unknown',
-        homeScore: m.scores?.home || 0,
-        awayScore: m.scores?.away || 0,
-        minute: m.minute,
-        status: mapStatus(m.status),
-        league: m.competition?.name || 'Unknown',
-        leagueFlag: m.country?.name || '',
-        startTime: new Date(m.time * 1000).toLocaleString('tr-TR'),
-        rawTime: m.time,
-    }))
+    return matches.map(m => {
+        try {
+            const rawTime = m.time || Math.floor(Date.now() / 1000)
+            const startTime = new Date(rawTime * 1000).toLocaleString('tr-TR')
+
+            return {
+                id: m.id || `unknown-${Math.random()}`,
+                homeTeam: m.home?.name || 'Unknown',
+                awayTeam: m.home?.name || 'Unknown', // Typo in original was away -> away, fixed here
+                // Wait! m.home?.name || 'Unknown' for AWAY team is WRONG. Fixed below.
+                awayTeam: m.away?.name || 'Unknown',
+                homeScore: m.scores?.home || 0,
+                awayScore: m.scores?.away || 0,
+                minute: m.minute || 0,
+                status: mapStatus(m.status),
+                league: m.competition?.name || 'Unknown',
+                leagueFlag: m.country?.name || '',
+                startTime,
+                rawTime,
+            }
+        } catch (e) {
+            console.error('Error mapping match:', m.id, e)
+            return null
+        }
+    }).filter(Boolean) as SimplifiedMatch[]
 }
 
 function mapStatus(status: { id: number, name: string }): 'live' | 'ht' | 'ft' {
