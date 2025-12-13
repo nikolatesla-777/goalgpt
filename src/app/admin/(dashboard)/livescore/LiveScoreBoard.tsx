@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Activity, Calendar, Clock, Trophy, MapPin, RefreshCw, AlertCircle } from 'lucide-react'
+import { Activity, RefreshCw, Trophy, Clock, Search, Filter } from 'lucide-react'
 import { fetchLiveMatchesSimplified, SimplifiedMatch } from '@/app/admin/(dashboard)/predictions/manual/actions'
 
 interface LiveScoreBoardProps {
@@ -12,6 +12,8 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
     const [matches, setMatches] = useState<SimplifiedMatch[]>(initialMatches)
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
     const [isRefreshing, setIsRefreshing] = useState(false)
+    const [searchTerm, setSearchTerm] = useState('')
+    const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'finished'>('all')
 
     const refreshData = async () => {
         setIsRefreshing(true)
@@ -40,159 +42,157 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
         return () => clearInterval(interval)
     }, [])
 
-    return (
-        <div className="space-y-8">
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#0F172A] p-6 rounded-2xl border border-slate-800 shadow-xl relative overflow-hidden">
-                {/* Background Glow */}
-                <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
+    // Filter matches
+    const filteredMatches = matches.filter(m => {
+        const matchesSearch =
+            m.homeTeam.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            m.awayTeam.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            m.league.toLowerCase().includes(searchTerm.toLowerCase())
 
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
-                        <div className="relative">
-                            <Activity className="w-8 h-8 text-emerald-400" />
-                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full animate-ping opacity-75" />
-                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full" />
-                        </div>
-                        LiveScore Center
-                    </h1>
-                    <p className="text-slate-400 mt-2 flex items-center gap-2 text-sm">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        Gerçek zamanlı veri akışı ve anlık skor takibi
-                    </p>
-                </div>
+        if (!matchesSearch) return false
 
-                <div className="flex items-center gap-4 z-10">
-                    <div className="bg-slate-900/50 px-4 py-2 rounded-lg border border-slate-700 flex flex-col items-end">
-                        <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">Son Güncelleme</span>
-                        <span className="text-xs font-mono text-emerald-400 font-medium">
-                            {lastUpdated.toLocaleTimeString()}
-                        </span>
-                    </div>
+        if (statusFilter === 'live') return m.status === 'live'
+        if (statusFilter === 'finished') return m.status !== 'live'
 
-                    <div className="bg-emerald-500/10 px-6 py-3 rounded-xl border border-emerald-500/20 flex flex-col items-center min-w-[100px]">
-                        <span className="text-2xl font-bold text-emerald-400">{matches.length}</span>
-                        <span className="text-[10px] text-emerald-200/60 uppercase font-bold tracking-wider">Aktif Maç</span>
-                    </div>
-                </div>
-            </div>
+        return true
+    })
 
-            {/* Matches Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {matches.map((match) => (
-                    <MatchCard key={match.id} match={match} />
-                ))}
-
-                {matches.length === 0 && (
-                    <div className="col-span-full py-24 flex flex-col items-center justify-center text-slate-500 bg-[#0F172A] rounded-2xl border border-dashed border-slate-800">
-                        <div className="bg-slate-900 p-4 rounded-full mb-4">
-                            <Activity className="w-8 h-8 opacity-40" />
-                        </div>
-                        <h3 className="text-lg font-medium text-slate-300">Şu an canlı maç bulunmuyor</h3>
-                        <p className="text-sm text-slate-500 mt-1">Daha sonra tekrar kontrol edebilirsiniz.</p>
-                    </div>
-                )}
-            </div>
-
-            {/* API Status Hint (Only visible if using sample data implicitly) */}
-            <div className="flex items-center gap-2 text-xs text-slate-600 justify-center pt-8 opacity-50">
-                <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span>Veriler TheSports API üzerinden 15 saniyede bir güncellenir.</span>
-            </div>
-        </div>
-    )
-}
-
-function MatchCard({ match }: { match: SimplifiedMatch }) {
-    const isLive = match.status === 'live'
+    const liveCount = matches.filter(m => m.status === 'live').length
 
     return (
-        <div className="group relative bg-[#0F172A] rounded-2xl border border-slate-800 overflow-hidden hover:border-slate-700 transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-900/10">
-            {/* Top Bar: League & Status */}
-            <div className="px-5 py-4 border-b border-slate-800/50 flex justify-between items-start bg-slate-900/30">
-                <div className="flex items-center gap-3 overflow-hidden">
-                    <div className="flex-shrink-0 w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center text-lg border border-slate-700">
-                        {match.leagueFlag || '⚽'}
+        <div className="min-h-screen bg-[#fafafa] p-8">
+            <div className="max-w-7xl mx-auto space-y-8">
+
+                {/* Header & Stats */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-emerald-100 p-3 rounded-xl border border-emerald-200">
+                            <Activity className="w-8 h-8 text-emerald-600" />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                                LiveScore Center
+                                {isRefreshing && <RefreshCw className="w-4 h-4 text-emerald-500 animate-spin" />}
+                            </h1>
+                            <p className="text-sm text-slate-500">
+                                Son güncelleme: {lastUpdated.toLocaleTimeString()} • Otomatik yenilenir
+                            </p>
+                        </div>
                     </div>
-                    <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-bold text-white truncate pr-2">{match.league}</span>
-                        <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                            <Calendar className="w-3 h-3" />
-                            {match.startTime}
+
+                    <div className="flex gap-4">
+                        <div className="bg-white border text-center border-slate-200 px-6 py-3 rounded-xl shadow-sm">
+                            <span className="block text-2xl font-bold text-slate-800">{matches.length}</span>
+                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Toplam Maç</span>
+                        </div>
+                        <div className="bg-white border text-center border-emerald-200 px-6 py-3 rounded-xl shadow-sm">
+                            <span className="block text-2xl font-bold text-emerald-600">{liveCount}</span>
+                            <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wide">Canlı Maç</span>
                         </div>
                     </div>
                 </div>
 
-                <div className={`
-                    flex-shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border flex items-center gap-1.5 shadow-sm
-                    ${isLive
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        : 'bg-slate-800 text-slate-400 border-slate-700'}
-                `}>
-                    {isLive && (
-                        <span className="relative flex h-1.5 w-1.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                        </span>
-                    )}
-                    {isLive ? `${match.minute}'` : match.status.toUpperCase()}
-                </div>
-            </div>
-
-            {/* Match Content */}
-            <div className="p-5">
-                <div className="flex items-center justify-between gap-4">
-                    {/* Home Team */}
-                    <div className="flex-1 flex flex-col items-center gap-3">
-                        <div className="w-14 h-14 bg-slate-800/50 rounded-full flex items-center justify-center border-2 border-slate-700/50 shadow-inner group-hover:border-emerald-500/20 transition-colors">
-                            <span className="text-sm font-bold text-slate-400 tracking-tighter">
-                                {match.homeTeam.substring(0, 2).toUpperCase()}
-                            </span>
-                        </div>
-                        <span className="text-sm font-semibold text-slate-200 text-center leading-tight line-clamp-2 h-10 flex items-center">
-                            {match.homeTeam}
-                        </span>
+                {/* Filters */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+                    <div className="relative w-full md:w-96">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Takım veya lig ara..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                        />
                     </div>
 
-                    {/* Score Board */}
-                    <div className="flex flex-col items-center gap-1">
-                        <div className="bg-slate-950 px-5 py-2 rounded-xl border border-slate-800 shadow-inner flex items-center gap-3">
-                            <span className={`text-2xl font-bold font-mono ${isLive ? 'text-emerald-400' : 'text-slate-400'}`}>
-                                {match.homeScore}
-                            </span>
-                            <span className="text-slate-600 font-bold">-</span>
-                            <span className={`text-2xl font-bold font-mono ${isLive ? 'text-emerald-400' : 'text-slate-400'}`}>
-                                {match.awayScore}
-                            </span>
-                        </div>
-                        {isLive && (
-                            <span className="text-[10px] text-emerald-500/80 font-medium tracking-wider animate-pulse">CANLI</span>
-                        )}
-                    </div>
-
-                    {/* Away Team */}
-                    <div className="flex-1 flex flex-col items-center gap-3">
-                        <div className="w-14 h-14 bg-slate-800/50 rounded-full flex items-center justify-center border-2 border-slate-700/50 shadow-inner group-hover:border-emerald-500/20 transition-colors">
-                            <span className="text-sm font-bold text-slate-400 tracking-tighter">
-                                {match.awayTeam.substring(0, 2).toUpperCase()}
-                            </span>
-                        </div>
-                        <span className="text-sm font-semibold text-slate-200 text-center leading-tight line-clamp-2 h-10 flex items-center">
-                            {match.awayTeam}
-                        </span>
+                    <div className="flex bg-slate-100 p-1 rounded-xl">
+                        {(['all', 'live', 'finished'] as const).map((status) => (
+                            <button
+                                key={status}
+                                onClick={() => setStatusFilter(status)}
+                                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all capitalization ${statusFilter === status
+                                        ? 'bg-white text-slate-800 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                    }`}
+                            >
+                                {status === 'all' ? 'Tümü' : status === 'live' ? 'Canlı' : 'Bitmiş'}
+                            </button>
+                        ))}
                     </div>
                 </div>
-            </div>
 
-            {/* Footer / ID */}
-            <div className="px-5 py-3 border-t border-slate-800/50 bg-slate-900/30 flex justify-between items-center">
-                <div className="text-[10px] text-slate-600 font-mono flex items-center gap-1">
-                    <Trophy className="w-3 h-3" />
-                    ID: {match.id}
-                </div>
-                <div className="text-[10px] text-slate-600 font-mono flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />
-                    {match.leagueFlag}
+                {/* Table */}
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    <table className="w-full">
+                        <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Durum</th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Lig / Tarih</th>
+                                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wide">Ev Sahibi</th>
+                                <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wide">Skor</th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Deplasman</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {filteredMatches.map((match) => (
+                                <tr key={match.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className={`
+                                            inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border w-fit
+                                            ${match.status === 'live'
+                                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                                : 'bg-slate-100 text-slate-500 border-slate-200'}
+                                        `}>
+                                            {match.status === 'live' && (
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                            )}
+                                            {match.status === 'live' ? `${match.minute}'` : match.status.toUpperCase()}
+                                        </div>
+                                    </td>
+
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-lg">{match.leagueFlag}</span>
+                                            <div>
+                                                <div className="text-sm font-semibold text-slate-700">{match.league}</div>
+                                                <div className="text-xs text-slate-400 flex items-center gap-1">
+                                                    <Clock className="w-3 h-3" />
+                                                    {match.startTime}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td className="px-6 py-4 text-right">
+                                        <span className="text-sm font-semibold text-slate-700">{match.homeTeam}</span>
+                                    </td>
+
+                                    <td className="px-6 py-4 text-center">
+                                        <div className={`
+                                            inline-block px-4 py-1.5 rounded-lg border font-mono font-bold text-sm
+                                            ${match.status === 'live'
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                : 'bg-slate-50 text-slate-600 border-slate-200'}
+                                        `}>
+                                            {match.homeScore} - {match.awayScore}
+                                        </div>
+                                    </td>
+
+                                    <td className="px-6 py-4 text-left">
+                                        <span className="text-sm font-semibold text-slate-700">{match.awayTeam}</span>
+                                    </td>
+                                </tr>
+                            ))}
+
+                            {filteredMatches.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                                        Maç bulunamadı.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
