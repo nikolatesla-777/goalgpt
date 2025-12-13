@@ -90,6 +90,7 @@ export async function fetchLiveMatches(): Promise<TheSportsMatch[]> {
 
 /**
  * Map TheSportsMatch to simpler format for manual prediction page
+ * Note: /diary endpoint returns team IDs, not names. Team names need separate lookup.
  */
 export interface SimplifiedMatch {
     id: string
@@ -110,22 +111,79 @@ export interface SimplifiedMatch {
 export async function fetchLiveMatchesSimplified(): Promise<SimplifiedMatch[]> {
     const matches = await fetchLiveMatches()
 
-    return matches.map(m => {
+    if (matches.length === 0) {
+        console.log('[Mapping] No matches to process')
+        return []
+    }
+
+    console.log('[Mapping] Processing', matches.length, 'matches from API')
+
+    // 1. Collect all unique team IDs
+    const teamIds = new Set<string>()
+    matches.forEach((m: any) => {
+        if (m.home_team_id) teamIds.add(m.home_team_id)
+        if (m.away_team_id) teamIds.add(m.away_team_id)
+    })
+
+    console.log('[Mapping] Fetching', teamIds.size, 'unique teams from database')
+
+    // 2. Batch fetch team data from Supabase
+    const teamMap = new Map<string, { name: string, logo: string }>()
+
+    try {
+        const { createClient } = await import('@supabase/supabase-js')
+        const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
+
+        // Fetch teams in batches of 500 (Supabase limit)
+        const teamIdArray = Array.from(teamIds)
+        const batchSize = 500
+
+        for (let i = 0; i < teamIdArray.length; i += batchSize) {
+            const batch = teamIdArray.slice(i, i + batchSize)
+            const { data: teams, error } = await supabase
+                .from('teams')
+                .select('external_id, name, logo')
+                .in('external_id', batch)
+
+            if (!error && teams) {
+                teams.forEach(t => {
+                    teamMap.set(t.external_id, { name: t.name, logo: t.logo || '' })
+                })
+            }
+        }
+
+        console.log('[Mapping] Retrieved', teamMap.size, 'team names from database')
+    } catch (e) {
+        console.error('[Mapping] Failed to fetch teams from DB:', e)
+    }
+
+    // 3. Map matches with team names
+    return matches.map((m: any) => {
         try {
-            const rawTime = m.time || Math.floor(Date.now() / 1000)
+            const rawTime = m.match_time || m.time || Math.floor(Date.now() / 1000)
             const startTime = new Date(rawTime * 1000).toLocaleString('tr-TR')
+            const statusId = m.status_id ?? m.status?.id ?? 1
+            const homeScore = Array.isArray(m.home_scores) ? m.home_scores[0] : (m.scores?.home || 0)
+            const awayScore = Array.isArray(m.away_scores) ? m.away_scores[0] : (m.scores?.away || 0)
+
+            // Get team info from our cache map
+            const homeTeamInfo = teamMap.get(m.home_team_id)
+            const awayTeamInfo = teamMap.get(m.away_team_id)
 
             return {
                 id: m.id || `unknown-${Math.random()}`,
-                homeTeam: m.home?.name || 'Unknown',
-                awayTeam: m.away?.name || 'Unknown',
-                homeLogo: m.home?.logo || '',
-                awayLogo: m.away?.logo || '',
-                homeScore: m.scores?.home || 0,
-                awayScore: m.scores?.away || 0,
+                homeTeam: homeTeamInfo?.name || m.home?.name || m.home_team_id?.substring(0, 10) || 'Home',
+                awayTeam: awayTeamInfo?.name || m.away?.name || m.away_team_id?.substring(0, 10) || 'Away',
+                homeLogo: homeTeamInfo?.logo || m.home?.logo || '',
+                awayLogo: awayTeamInfo?.logo || m.away?.logo || '',
+                homeScore,
+                awayScore,
                 minute: m.minute || 0,
-                status: mapStatus(m.status),
-                league: m.competition?.name || 'Unknown',
+                status: mapStatusById(statusId),
+                league: m.competition?.name || m.competition_id?.substring(0, 10) || 'League',
                 leagueFlag: m.country?.name || '',
                 startTime,
                 rawTime,
@@ -137,14 +195,15 @@ export async function fetchLiveMatchesSimplified(): Promise<SimplifiedMatch[]> {
     }).filter(Boolean) as SimplifiedMatch[]
 }
 
-function mapStatus(status: { id: number, name: string }): 'live' | 'ht' | 'ft' | 'ns' {
-    const id = status?.id
-    // Common statuses: 1=Not Started, 8=Finished, 2-7=Live, 3=HT
-    if (id === 1 || id === 0) return 'ns'
-    if (id === 8 || id === 10 || id === 11 || id === 9) return 'ft' // 9 = Postponed usually? Let's verify. For now treat as finished/inactive.
-    if (id === 3) return 'ht'
-    if ([2, 4, 5, 6, 7].includes(id)) return 'live'
-    return 'ns' // Default to Not Started instead of Finished to be safe? Or 'ns' to avoid confusion.
+function mapStatusById(statusId: number): 'live' | 'ht' | 'ft' | 'ns' {
+    // TheSports status IDs:
+    // 1=Not Started, 2=First Half, 3=Half Time, 4=Second Half, 5=Extra Time
+    // 6=Penalties, 7=Break, 8=Finished, 9=Postponed, 10=Cancelled, etc.
+    if (statusId === 1 || statusId === 0) return 'ns'
+    if (statusId === 8 || statusId === 10 || statusId === 11 || statusId === 9) return 'ft'
+    if (statusId === 3) return 'ht'
+    if ([2, 4, 5, 6, 7].includes(statusId)) return 'live'
+    return 'ns'
 }
 
 // ============================================================================

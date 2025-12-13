@@ -78,22 +78,12 @@ export class TheSportsApi {
     }
 
     /**
-     * Fetches matches for a specific date (Unix timestamp).
-     * If no date provided, defaults to today.
+     * Fetches matches for today (diary endpoint).
+     * This returns all of today's matches: scheduled, live, and finished.
      */
     static async getFixturesByDate(date?: number): Promise<FixtureDto[]> {
-        // 'date' param usually expects YYYY-MM-DD or similar in some APIs, 
-        // but TheSports often uses a 'date' param (string) or 'time' (unix).
-        // Let's assume typical usage: /football/match/list?date=2024-01-01
-
-        // If date is number (unix), convert to YYYY-MM-DD if needed, or pass as is if API supports it.
-        // Checking legacy: likely 'date' string.
-
-        const dateStr = date
-            ? new Date(date * 1000).toISOString().split('T')[0]
-            : new Date().toISOString().split('T')[0];
-
-        const data = await this.get('/football/match/list', { date: dateStr });
+        // /football/match/diary returns today's full fixture list
+        const data = await this.get('/football/match/diary');
         return data.results || [];
     }
 

@@ -8,8 +8,8 @@ const axios = require('axios');
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// TheSports Config
-const API_URL = process.env.THESPORTS_API_URL || 'https://api.thesports.com/v1/football';
+// TheSports Config - BASE URL should NOT include /football
+const API_URL = 'https://api.thesports.com/v1';
 const API_USER = process.env.THESPORTS_API_USER;
 const API_SECRET = process.env.THESPORTS_API_SECRET;
 
@@ -22,7 +22,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function fetchTeams(page = 1) {
     try {
-        const endpoint = `${API_URL}/team/additional/list`;
+        const endpoint = `${API_URL}/football/team/additional/list`;
         const response = await axios.get(endpoint, {
             params: {
                 user: API_USER,
