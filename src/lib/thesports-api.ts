@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const BASE_URL = process.env.THESPORTS_API_URL || 'https://api.thesports.com/v1/football';
+// NOTE: Base URL should NOT include /football since all endpoints already have it
+const BASE_URL = process.env.THESPORTS_API_URL || 'https://api.thesports.com/v1';
 const API_USER = process.env.THESPORTS_API_USER;
 const API_SECRET = process.env.THESPORTS_API_SECRET;
 

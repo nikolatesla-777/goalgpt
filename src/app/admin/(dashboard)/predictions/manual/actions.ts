@@ -54,37 +54,37 @@ function getMockMatches(): TheSportsMatch[] {
 }
 
 /**
- * Fetch live matches from TheSports API
- * Falls back to sample data if API is not configured OR returns empty
+ * Fetch matches from TheSports API
+ * Now fetches ALL today's matches (scheduled + live + finished)
  */
 export async function fetchLiveMatches(): Promise<TheSportsMatch[]> {
-    // Check if API is configured
     const apiUser = process.env.THESPORTS_API_USER
     const apiSecret = process.env.THESPORTS_API_SECRET
 
-    console.log('[DEBUG] Fetching Live Matches...')
-    console.log('[DEBUG] Env Vars -> User:', apiUser ? '***' : 'MISSING', 'Secret:', apiSecret ? '***' : 'MISSING')
+    console.log('[TheSports] Fetching fixtures...')
+    console.log('[TheSports] API Credentials:', apiUser ? 'User OK' : 'USER MISSING', apiSecret ? 'Secret OK' : 'SECRET MISSING')
 
     if (!apiSecret || !apiUser) {
-        console.warn('[DEBUG] TheSports API credentials missing, using mock data')
-        return getMockMatches()
+        console.error('[TheSports] ❌ API credentials missing! Add THESPORTS_API_USER and THESPORTS_API_SECRET to env.')
+        return getMockMatches() // Only fallback if NO credentials at all
     }
 
     try {
-        // Fetch ALL matches for today, not just live ones
-        // This ensures the table is populated even if no matches are currently live
-        const matches = await TheSportsApi.getFixturesByDate() // defaults to today
+        const matches = await TheSportsApi.getFixturesByDate()
+        console.log('[TheSports] ✅ API Response:', matches.length, 'matches found')
 
-        console.log('[DEBUG] API Response Count:', matches.length)
-
-        if (matches.length === 0) {
-            console.warn('[DEBUG] API returned 0 matches. Returning MOCK data for UI demonstration.')
-            return getMockMatches()
+        // If API returns matches, use them
+        if (matches.length > 0) {
+            return matches
         }
-        return matches
-    } catch (error) {
-        console.error('[DEBUG] Error fetching matches:', error)
-        return getMockMatches()
+
+        // If 0 matches, log warning and return empty (not mock)
+        console.warn('[TheSports] ⚠️ API returned 0 matches for today')
+        return []
+
+    } catch (error: any) {
+        console.error('[TheSports] ❌ API Error:', error?.message || error)
+        return [] // Return empty on error, let UI show "No matches"
     }
 }
 
