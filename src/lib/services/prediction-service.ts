@@ -2,6 +2,10 @@
 import { DataProvider } from '../providers/data-provider'
 import { AIPredictionPayload, LegacyPredictionPayload, PredictionIngestResult } from '../types/predictions'
 
+import { TeamMatchingService } from './team-matching-service'
+import { BotMatchingService } from './bot-matching-service'
+import { LiveMatchService } from './live-match-service'
+
 export class PredictionService {
 
     /**
@@ -19,8 +23,58 @@ export class PredictionService {
      */
     static async ingest(payload: AIPredictionPayload): Promise<PredictionIngestResult> {
         try {
-            // 2. Add to Data Provider
-            await DataProvider.addPrediction(payload)
+            // 2. Resolve Team IDs (Smart Mapping)
+            // Ported from Legacy Logic
+            const { homeId, awayId } = await TeamMatchingService.matchTeamIds(payload.homeTeam, payload.awayTeam)
+
+            console.log(`🧠 Smart Mapping: ${payload.homeTeam} -> ${homeId || '??'}, ${payload.awayTeam} -> ${awayId || '??'}`)
+
+            // 3. Bot Matching (New Logic)
+            // Extract alert code from analysis or raw text if available
+            // In legacy, alert code often came in payload, here we might need to regex it out again if not explicit
+            // `payload.analysis` often contains "Alert Code: XYZ" from our parser
+            let extractedAlertCode = ''
+            if (payload.analysis && payload.analysis.includes('Alert Code:')) {
+                extractedAlertCode = payload.analysis.split('Alert Code:')[1].trim()
+            }
+
+            const botMatch = await BotMatchingService.matchBot({
+                minute: payload.minute,
+                alertCode: extractedAlertCode,
+                fullText: payload.rawText
+            })
+
+            if (botMatch) {
+                console.log(`🤖 Bot Identified: ${botMatch.name} (${botMatch.id})`)
+            } else {
+                console.log('🤖 No specific bot matched (using default)')
+            }
+
+            // 4. Link to Live Match (TheSports) - NEW
+            let theSportsMatchId: string | null = null
+
+            // Note: TeamMatchingService returns whatever ID is in our 'teams' table.
+            // Our 'sync-teams.js' populates 'external_id' column with TheSports ID, BUT
+            // 'TeamMatchingService.matchTeamIds' logic returns 'external_id' (legacy logic implies this).
+            // Let's verify TeamService output:
+            // "return { homeId: this.findBestMatch(...), ... }" -> findBestMatch returns team.external_id
+            // So 'homeId' IS the TheSports ID (or legacy ID). Assuming it's compatible.
+
+            if (homeId && awayId) {
+                theSportsMatchId = await LiveMatchService.findMatchForPrediction(homeId, awayId)
+            }
+
+            // Extending payload type on the fly for Supabase Provider:
+            const enrichedPayload = {
+                ...payload,
+                homeTeamId: homeId,
+                awayTeamId: awayId,
+                botGroupId: botMatch?.id || null,
+                botGroupName: botMatch?.name || null,
+                matchUuid: theSportsMatchId || null
+            }
+
+            await DataProvider.addPrediction(enrichedPayload as any)
 
             // 3. Simulate Notification Flow (Log to console for Vercel logs)
             if (this.shouldTriggerNotification(payload)) {
@@ -107,12 +161,33 @@ export class PredictionService {
 
         for (const line of lines) {
             const trimmed = line.trim()
-            const matchRegex = /^(.+?)\s*-\s*(.+?)\s*\((\d+-\d+)\)$/ // Team A - Team B (1-0)
-            const matchResult = matchRegex.exec(trimmed)
 
+            // Try Cenkler format first: 00079⚽ *Team1 - Team2  ( 0 - 0 )*
+            const cenklerMatch = trimmed.match(/\*([^*]+?)\s*-\s*([^*(]+?)\s*\(/)
+            if (cenklerMatch) {
+                result.home_team_name = cenklerMatch[1].trim()
+                result.away_team_name = cenklerMatch[2].trim()
+                continue
+            }
+
+            // Standard format: Team A - Team B (1-0)
+            const matchRegex = /^(.+?)\s*-\s*(.+?)\s*\((\d+-\d+)\)$/
+            const matchResult = matchRegex.exec(trimmed)
             if (matchResult) {
                 result.home_team_name = matchResult[1].trim()
                 result.away_team_name = matchResult[2].trim()
+                continue
+            }
+
+            // Extract league from 🏟 line
+            if (trimmed.startsWith('🏟')) {
+                const leaguePart = trimmed.replace('🏟', '').trim()
+                if (leaguePart.includes('-')) {
+                    const parts = leaguePart.split('-')
+                    result.league_name = parts.slice(1).join('-').trim() || leaguePart
+                } else {
+                    result.league_name = leaguePart
+                }
                 continue
             }
 
@@ -121,13 +196,18 @@ export class PredictionService {
                 continue
             }
 
-            // Prediction type logic
-            if (trimmed.match(/^\+?\d|^IY|^MS|^KG|^ÜST|^ALT/i)) {
+            // Prediction type logic (e.g., IY Gol, +1 Gol, MS 1, etc.)
+            if (trimmed.startsWith('❗')) {
+                result.prediction_type = trimmed.replace('❗', '').trim()
+                continue
+            }
+
+            if (trimmed.match(/^(\+?\d|IY|MS|KG|ÜST|ALT)/i)) {
                 result.prediction_type = trimmed
                 continue
             }
 
-            if (trimmed && !result.league_name && !trimmed.includes(':') && !trimmed.includes('-')) {
+            if (trimmed && !result.league_name && !trimmed.includes(':') && !trimmed.includes('-') && !trimmed.startsWith('⏰') && !trimmed.startsWith('👉')) {
                 result.league_name = trimmed
             }
         }
@@ -175,7 +255,7 @@ export class PredictionService {
         // if (score) title += ` (${score})` -> parsed from raw text in simulation if needed
 
         // Sender fallback
-        const sender = p.botId || 'GoalGPT AI'
+        const sender = p.botGroupName || p.botId || 'GoalGPT AI'
         const body = `${sender}: ${p.prediction}`
 
         const logPayload = {

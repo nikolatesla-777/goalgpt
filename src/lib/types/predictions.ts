@@ -14,6 +14,10 @@ export interface AIPredictionPayload {
     // derived fields for legacy support
     rawText?: string;
     originalId?: number;
+    homeTeamId?: string | null;
+    awayTeamId?: string | null;
+    botGroupId?: string | null;
+    botGroupName?: string | null;
 }
 
 export interface LegacyPredictionPayload {

@@ -35,13 +35,17 @@ export async function POST(request: NextRequest) {
         // 2. Determine Format (Case Insensitive)
         const isLegacy = ('Id' in body && 'Prediction' in body) || ('id' in body && 'prediction' in body)
 
-        // 3. API Key validation
+        // 3. API Key validation (SOFT AUTH)
         const apiKey = request.headers.get('x-api-key')
+        const isValidKey = PredictionService.validateApiKey(apiKey)
 
-        if (false /* !isLegacy && !PredictionService.validateApiKey(apiKey) - DISABLED SECURITY */) {
-            status = 401
-            responseBody = { success: false, message: 'Unauthorized: Invalid API Key' }
-        } else {
+        if (!isValidKey) {
+            console.warn(`⚠️ [Soft Auth] Invalid or missing API Key from ${request.headers.get('x-forwarded-for') || 'unknown'}. Processing anyway.`)
+            // We can add a metadata flag later if needed
+        }
+
+        // Always proceed (status remains 200)
+        if (true) {
             // 4. Process Logic
             let predictions: AIPredictionPayload[] = []
 

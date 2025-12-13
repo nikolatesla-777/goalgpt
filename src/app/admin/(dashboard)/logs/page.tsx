@@ -1,40 +1,28 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/utils/supabase/client'
+import { getApiLogs, ApiLog } from './actions'
 import { formatInTimeZone } from 'date-fns-tz'
 import { tr } from 'date-fns/locale'
 import { RefreshCw, ChevronRight, Activity, Globe, Calendar } from 'lucide-react'
 
-interface ApiLog {
-    id: number
-    created_at: string
-    endpoint: string
-    method: string
-    headers: any
-    body: any
-    response_status: number
-    response_body: any
-    ip_address: string
-}
+// ...
 
 export default function LogsPage() {
     const [logs, setLogs] = useState<ApiLog[]>([])
     const [loading, setLoading] = useState(true)
     const [expandedLog, setExpandedLog] = useState<number | null>(null)
-    const supabase = createClient()
 
     const fetchLogs = async () => {
         setLoading(true)
-        const { data, error } = await supabase
-            .from('api_logs')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(50)
-
-        if (data) setLogs(data)
-        if (error) console.error(error)
-        setLoading(false)
+        try {
+            const data = await getApiLogs(50)
+            setLogs(data)
+        } catch (error) {
+            console.error(error)
+        } finally {
+            setLoading(false)
+        }
     }
 
     useEffect(() => {
@@ -97,8 +85,8 @@ export default function LogsPage() {
                                             {/* Status Badge */}
                                             <div className="col-span-2 sm:col-span-1">
                                                 <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-md text-xs font-bold ring-1 ring-inset ${isSuccess
-                                                        ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'
-                                                        : 'bg-red-50 text-red-700 ring-red-600/20'
+                                                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'
+                                                    : 'bg-red-50 text-red-700 ring-red-600/20'
                                                     }`}>
                                                     {log.response_status}
                                                 </span>
@@ -135,10 +123,23 @@ export default function LogsPage() {
                                                     <div className="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-2">
                                                         <span className="text-[10px] text-slate-400 font-mono">HEADERS</span>
                                                     </div>
-                                                    <pre className="font-mono text-[11px] text-emerald-400 overflow-x-auto custom-scrollbar max-h-40">
+                                                    <pre className="font-mono text-[11px] text-emerald-400 overflow-x-auto custom-scrollbar max-h-40 mb-4">
                                                         {JSON.stringify(log.headers, null, 2)}
                                                     </pre>
-                                                    <div className="flex justify-between items-center mb-2 mt-4 border-b border-slate-700/50 pb-2">
+
+                                                    {log.decoded && (
+                                                        <div className="mb-4 bg-slate-800/50 p-2 rounded border border-slate-700/50">
+                                                            <div className="text-[10px] text-slate-500 font-bold mb-1 uppercase">Sinyal İçeriği (Çözümlendi)</div>
+                                                            <div className="text-sm font-bold text-white mb-0.5">{log.decoded.teams}</div>
+                                                            <div className="flex items-center gap-2 text-xs text-slate-400">
+                                                                <span className="bg-slate-700 text-white px-1.5 py-0.5 rounded">{log.decoded.score}</span>
+                                                                <span className="text-emerald-400 font-mono">{log.decoded.minute}'</span>
+                                                                <span>{log.decoded.league}</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-2">
                                                         <span className="text-[10px] text-slate-400 font-mono">REQUEST BODY</span>
                                                     </div>
                                                     <pre className="font-mono text-[11px] text-blue-400 overflow-x-auto custom-scrollbar max-h-60">

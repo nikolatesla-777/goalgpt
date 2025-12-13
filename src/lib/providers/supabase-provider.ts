@@ -12,19 +12,8 @@ import { AIPredictionPayload } from '../types/predictions'
 import type { IDataProvider } from './data-provider'
 
 // =============================================================================
-// SUPABASE PROVIDER (SHELL - Future Implementation)
+// SUPABASE PROVIDER
 // =============================================================================
-
-/**
- * ⚠️ NOT IMPLEMENTED
- * 
- * Bu dosya gerçek veritabanı bağlantısı için hazırlanmış shell'dir.
- * İmplementasyon yapılacak:
- * 
- * 1. Supabase client oluştur
- * 2. Her method için SQL sorgusu yaz
- * 3. data-provider.ts'de export'u değiştir
- */
 
 export class SupabaseProvider implements IDataProvider {
     private get supabase() {
@@ -35,91 +24,44 @@ export class SupabaseProvider implements IDataProvider {
     }
 
     async getUsers(filters: UserFilters): Promise<PaginatedResult<User>> {
-        // TODO: Implement Supabase query
-        /*
-        let query = this.supabase
-            .from('users')
-            .select('*, user_segments!inner(*), subscriptions(*)', { count: 'exact' })
-        
-        if (filters.segment) {
-            query = query.eq('user_segments.segment', filters.segment)
-        }
-        
-        if (filters.platform) {
-            query = query.eq('platform', filters.platform)
-        }
-        
-        if (filters.search) {
-            query = query.or(`email.ilike.%${filters.search}%,name.ilike.%${filters.search}%`)
-        }
-        
-        const { data, count, error } = await query
-            .range((filters.page - 1) * filters.limit, filters.page * filters.limit - 1)
-        
-        return { data, total: count, ... }
-        */
-
         throw new Error('SupabaseProvider not implemented. Use FakeProvider.')
     }
 
     async getUserById(id: string): Promise<User | null> {
-        // TODO: Implement
         throw new Error('SupabaseProvider not implemented. Use FakeProvider.')
     }
 
     async updateUserSegment(userId: string, segment: SegmentType): Promise<void> {
-        // TODO: Implement
-        /*
-        await this.supabase
-            .from('user_segments')
-            .upsert({
-                user_id: userId,
-                segment: segment,
-                updated_at: new Date().toISOString()
-            })
-        */
         throw new Error('SupabaseProvider not implemented. Use FakeProvider.')
     }
 
     async getSegmentCounts(): Promise<Record<SegmentType, number>> {
-        // TODO: Implement
         throw new Error('SupabaseProvider not implemented. Use FakeProvider.')
     }
 
     async getMetrics(period: string): Promise<DashboardMetrics> {
-        // TODO: Implement with date range queries
         throw new Error('SupabaseProvider not implemented. Use FakeProvider.')
     }
 
     async getChartData(metricId: string, period: string): Promise<ChartDataPoint[]> {
-        // TODO: Implement with GROUP BY date queries
         throw new Error('SupabaseProvider not implemented. Use FakeProvider.')
     }
 
     async getMetricUsers(metricId: string, page: number, limit: number): Promise<PaginatedResult<User>> {
-        // TODO: Implement
         throw new Error('SupabaseProvider not implemented. Use FakeProvider.')
     }
 
     async logAction(userId: string, action: Omit<UserAction, 'id' | 'created_at'>): Promise<void> {
-        // TODO: Implement
-        /*
-        await this.supabase
-            .from('segment_actions_log')
-            .insert({
-                user_id: userId,
-                action_type: action.action_type,
-                action_detail: action.action_detail,
-                created_by: action.created_by
-            })
-        */
         throw new Error('SupabaseProvider not implemented. Use FakeProvider.')
     }
 
     async getActionHistory(userId: string): Promise<UserAction[]> {
-        // TODO: Implement
         throw new Error('SupabaseProvider not implemented. Use FakeProvider.')
     }
+
+    // -------------------------------------------------------------------------
+    // PREDICTION METHODS
+    // -------------------------------------------------------------------------
 
     async addPrediction(prediction: AIPredictionPayload): Promise<void> {
         // Use service role key for server-side writes
@@ -128,6 +70,7 @@ export class SupabaseProvider implements IDataProvider {
             process.env.SUPABASE_SERVICE_ROLE_KEY || ''
         )
 
+        // 1. Insert/Update Prediction with Bot ID
         const { error } = await supabaseAdmin
             .from('predictions_raw')
             .upsert({
@@ -141,6 +84,7 @@ export class SupabaseProvider implements IDataProvider {
                 match_minute: prediction.minute || null,
                 raw_payload: prediction,
                 status: 'pending',
+                bot_group_id: prediction.botGroupId || null, // <--- SAVING BOT ID
                 received_at: new Date().toISOString()
             }, {
                 onConflict: 'external_id',
@@ -152,7 +96,56 @@ export class SupabaseProvider implements IDataProvider {
             throw new Error(`Failed to insert prediction: ${error.message}`)
         }
 
-        console.log(`✅ Prediction saved to Supabase: ${prediction.homeTeam} vs ${prediction.awayTeam}`)
+        // 2. Increment Bot Stats (Logic to update dashboard numbers)
+        if (prediction.botGroupId) {
+            try {
+                // Try RPC first (atomic)
+                const { error: rpcError } = await supabaseAdmin.rpc('increment_bot_stats', {
+                    group_id: prediction.botGroupId
+                })
+
+                if (rpcError) {
+                    // Fallback: Read-Update-Write (Optimization: Skip if high frequency, acceptable for now)
+                    const { data: bot } = await supabaseAdmin
+                        .from('bot_groups')
+                        .select('total_predictions')
+                        .eq('id', prediction.botGroupId)
+                        .single()
+
+                    if (bot) {
+                        await supabaseAdmin
+                            .from('bot_groups')
+                            .update({ total_predictions: (bot.total_predictions || 0) + 1 })
+                            .eq('id', prediction.botGroupId)
+                    }
+                }
+            } catch (statError) {
+                console.warn('Failed to update bot stats:', statError)
+            }
+        }
+
+        // 3. Dual Write to Mapped Table (Optional but good for legacy)
+        if (prediction.homeTeamId || prediction.awayTeamId) {
+            const { error: mapError } = await supabaseAdmin
+                .from('ts_prediction_mapped')
+                .insert({
+                    home_team_id: prediction.homeTeamId,
+                    away_team_id: prediction.awayTeamId,
+                    home_team_name: prediction.homeTeam,
+                    away_team_name: prediction.awayTeam,
+                    match_score: prediction.rawText?.match(/\(\d+-\d+\)/)?.[0] || '',
+                    minute: prediction.minute,
+                    prediction: prediction.prediction,
+                    competition_name: prediction.league,
+                    raw_text: prediction.rawText,
+                    bot_group_id: prediction.botGroupId || null // Also here
+                })
+
+            if (mapError) console.error('⚠️ Failed to insert mapped prediction:', mapError)
+            else console.log('✅ Also saved to ts_prediction_mapped')
+        }
+
+        console.log(`✅ Prediction saved to Supabase: ${prediction.homeTeam} vs ${prediction.awayTeam} (Bot: ${prediction.botGroupName || 'None'})`)
     }
 
     async getPredictions(limit: number = 50): Promise<AIPredictionPayload[]> {
@@ -185,9 +178,8 @@ export class SupabaseProvider implements IDataProvider {
             analysis: row.prediction_text || '',
             timestamp: new Date(row.received_at).getTime(),
             minute: row.match_minute,
-            rawText: row.prediction_text
+            rawText: row.prediction_text,
+            botGroupId: row.bot_group_id, // Return saved bot ID if needed
         }))
     }
-
 }
-

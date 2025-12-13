@@ -97,6 +97,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { name: 'Partner Yönetimi', href: '/admin/partners', icon: Users },
         { name: 'Finans & Ödemeler', href: '/admin/finance', icon: CreditCard },
         { name: 'Web Satış (Stripe)', href: '/admin/sales', icon: ShoppingBag },
+        { name: 'LiveScore', href: '/admin/livescore', icon: Activity },
         { name: 'Sistem Ayarları', href: '/admin/settings', icon: Settings },
     ]
 
