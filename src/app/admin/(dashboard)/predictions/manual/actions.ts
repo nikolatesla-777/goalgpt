@@ -98,7 +98,7 @@ export interface SimplifiedMatch {
     homeScore: number
     awayScore: number
     minute: number
-    status: 'live' | 'ht' | 'ft'
+    status: 'live' | 'ht' | 'ft' | 'ns'
     league: string
     leagueFlag: string
     startTime: string
@@ -135,12 +135,14 @@ export async function fetchLiveMatchesSimplified(): Promise<SimplifiedMatch[]> {
     }).filter(Boolean) as SimplifiedMatch[]
 }
 
-function mapStatus(status: { id: number, name: string }): 'live' | 'ht' | 'ft' {
+function mapStatus(status: { id: number, name: string }): 'live' | 'ht' | 'ft' | 'ns' {
     const id = status?.id
-    if (id === 8 || id === 10 || id === 11) return 'ft'
+    // Common statuses: 1=Not Started, 8=Finished, 2-7=Live, 3=HT
+    if (id === 1 || id === 0) return 'ns'
+    if (id === 8 || id === 10 || id === 11 || id === 9) return 'ft' // 9 = Postponed usually? Let's verify. For now treat as finished/inactive.
     if (id === 3) return 'ht'
-    if ([2, 4, 5].includes(id)) return 'live'
-    return 'ft'
+    if ([2, 4, 5, 6, 7].includes(id)) return 'live'
+    return 'ns' // Default to Not Started instead of Finished to be safe? Or 'ns' to avoid confusion.
 }
 
 // ============================================================================
