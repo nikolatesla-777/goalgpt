@@ -99,8 +99,6 @@ export async function fetchLiveMatchesSimplified(): Promise<SimplifiedMatch[]> {
             return {
                 id: m.id || `unknown-${Math.random()}`,
                 homeTeam: m.home?.name || 'Unknown',
-                awayTeam: m.home?.name || 'Unknown', // Typo in original was away -> away, fixed here
-                // Wait! m.home?.name || 'Unknown' for AWAY team is WRONG. Fixed below.
                 awayTeam: m.away?.name || 'Unknown',
                 homeScore: m.scores?.home || 0,
                 awayScore: m.scores?.away || 0,
