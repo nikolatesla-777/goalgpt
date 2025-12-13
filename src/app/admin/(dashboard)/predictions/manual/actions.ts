@@ -55,18 +55,29 @@ const sampleLiveMatches: TheSportsMatch[] = [
  */
 export async function fetchLiveMatches(): Promise<TheSportsMatch[]> {
     // Check if API is configured
+    const apiUser = process.env.THESPORTS_API_USER
     const apiSecret = process.env.THESPORTS_API_SECRET
 
-    if (!apiSecret) {
-        console.log('TheSports API not configured, using sample data')
+    console.log('[DEBUG] Fetching Live Matches...')
+    console.log('[DEBUG] Env Vars -> User:', apiUser ? '***' : 'MISSING', 'Secret:', apiSecret ? '***' : 'MISSING')
+
+    if (!apiSecret || !apiUser) {
+        console.warn('[DEBUG] TheSports API credentials missing, using sample data')
         return sampleLiveMatches
     }
 
     try {
         const matches = await TheSportsApi.getLiveMatches()
-        return matches.length > 0 ? matches : sampleLiveMatches
+        console.log('[DEBUG] API Response Count:', matches.length)
+        if (matches.length === 0) {
+            console.warn('[DEBUG] API returned 0 matches, forcing sample data for UI testing?')
+            // Let's NOT force sample data if API returns 0. If it's truly 0 live matches, show 0.
+            // But for now, user wants to see UI working, so let's stick to sample data only on ERROR.
+            return matches
+        }
+        return matches
     } catch (error) {
-        console.error('Error fetching live matches:', error)
+        console.error('[DEBUG] Error fetching live matches:', error)
         return sampleLiveMatches
     }
 }
