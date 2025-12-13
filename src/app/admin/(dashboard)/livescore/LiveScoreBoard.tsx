@@ -13,7 +13,7 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
-    const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'finished'>('all')
+    const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'upcoming' | 'finished'>('all')
 
     const refreshData = async () => {
         setIsRefreshing(true)
@@ -51,13 +51,14 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
 
         if (!matchesSearch) return false
 
-        if (statusFilter === 'live') return m.status === 'live'
-        if (statusFilter === 'finished') return m.status !== 'live'
+        if (statusFilter === 'live') return m.status === 'live' || m.status === 'ht'
+        if (statusFilter === 'upcoming') return m.status === 'ns'
+        if (statusFilter === 'finished') return m.status === 'ft'
 
         return true
     })
 
-    const liveCount = matches.filter(m => m.status === 'live').length
+    const liveCount = matches.filter(m => m.status === 'live' || m.status === 'ht').length
 
     return (
         <div className="min-h-screen bg-[#fafafa] p-8">
