@@ -112,8 +112,8 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
                                 key={status}
                                 onClick={() => setStatusFilter(status)}
                                 className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all capitalization ${statusFilter === status
-                                        ? 'bg-white text-slate-800 shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-700'
+                                    ? 'bg-white text-slate-800 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-700'
                                     }`}
                             >
                                 {status === 'all' ? 'Tümü' : status === 'live' ? 'Canlı' : status === 'upcoming' ? 'Bekliyor' : 'Bitmiş'}
@@ -213,7 +213,8 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                )
+                            })}
 
                             {filteredMatches.length === 0 && (
                                 <tr>
