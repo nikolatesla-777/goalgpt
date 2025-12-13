@@ -78,6 +78,8 @@ export interface SimplifiedMatch {
     id: string
     homeTeam: string
     awayTeam: string
+    homeLogo: string
+    awayLogo: string
     homeScore: number
     awayScore: number
     minute: number
@@ -100,6 +102,8 @@ export async function fetchLiveMatchesSimplified(): Promise<SimplifiedMatch[]> {
                 id: m.id || `unknown-${Math.random()}`,
                 homeTeam: m.home?.name || 'Unknown',
                 awayTeam: m.away?.name || 'Unknown',
+                homeLogo: m.home?.logo || '',
+                awayLogo: m.away?.logo || '',
                 homeScore: m.scores?.home || 0,
                 awayScore: m.scores?.away || 0,
                 minute: m.minute || 0,
