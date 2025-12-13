@@ -1,4 +1,4 @@
-import { fetchLiveMatches } from '@/app/admin/(dashboard)/predictions/manual/actions'
+import { fetchLiveMatchesSimplified } from '@/app/admin/(dashboard)/predictions/manual/actions'
 import { Activity } from 'lucide-react'
 
 // Re-using the fetch logic from Manual Actions since it already handles fallback/error
@@ -9,7 +9,7 @@ import { Activity } from 'lucide-react'
 export const dynamic = 'force-dynamic'
 
 export default async function LiveScorePage() {
-    const matches = await fetchLiveMatches()
+    const matches = await fetchLiveMatchesSimplified()
 
     // Sort by status (Live first) and then by time
     const sortedMatches = matches.sort((a, b) => {
@@ -56,10 +56,10 @@ export default async function LiveScorePage() {
 
                         {/* League Info */}
                         <div className="flex items-center gap-2 mb-4">
-                            <span className="text-lg">{match.countryFlag}</span>
+                            <span className="text-lg">{match.leagueFlag}</span>
                             <div className="flex flex-col">
-                                <span className="text-xs font-bold text-gray-300 truncate max-w-[200px]">{match.competitionName}</span>
-                                <span className="text-[10px] text-gray-500">{match.countryName}</span>
+                                <span className="text-xs font-bold text-gray-300 truncate max-w-[200px]">{match.league}</span>
+                                <span className="text-[10px] text-gray-500">{match.id}</span>
                             </div>
                         </div>
 
@@ -68,9 +68,9 @@ export default async function LiveScorePage() {
                             {/* Home */}
                             <div className="flex-1 flex flex-col items-center text-center gap-2">
                                 <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-xs font-bold text-gray-500">
-                                    {match.homeTeamLogo ? <img src={match.homeTeamLogo} alt="" className="w-6 h-6 object-contain" /> : match.homeTeamName.substring(0, 2)}
+                                    {match.homeTeam.substring(0, 2)}
                                 </div>
-                                <span className="text-sm font-medium text-gray-300 leading-tight">{match.homeTeamName}</span>
+                                <span className="text-sm font-medium text-gray-300 leading-tight">{match.homeTeam}</span>
                             </div>
 
                             {/* Score */}
@@ -83,9 +83,9 @@ export default async function LiveScorePage() {
                             {/* Away */}
                             <div className="flex-1 flex flex-col items-center text-center gap-2">
                                 <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-xs font-bold text-gray-500">
-                                    {match.awayTeamLogo ? <img src={match.awayTeamLogo} alt="" className="w-6 h-6 object-contain" /> : match.awayTeamName.substring(0, 2)}
+                                    {match.awayTeam.substring(0, 2)}
                                 </div>
-                                <span className="text-sm font-medium text-gray-300 leading-tight">{match.awayTeamName}</span>
+                                <span className="text-sm font-medium text-gray-300 leading-tight">{match.awayTeam}</span>
                             </div>
                         </div>
                     </div>
