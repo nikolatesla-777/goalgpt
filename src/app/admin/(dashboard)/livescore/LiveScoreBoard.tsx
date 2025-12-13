@@ -107,16 +107,16 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
                     </div>
 
                     <div className="flex bg-slate-100 p-1 rounded-xl">
-                        {(['all', 'live', 'finished'] as const).map((status) => (
+                        {(['all', 'live', 'upcoming', 'finished'] as const).map((status) => (
                             <button
                                 key={status}
                                 onClick={() => setStatusFilter(status)}
                                 className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all capitalization ${statusFilter === status
-                                    ? 'bg-white text-slate-800 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                        ? 'bg-white text-slate-800 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700'
                                     }`}
                             >
-                                {status === 'all' ? 'Tümü' : status === 'live' ? 'Canlı' : 'Bitmiş'}
+                                {status === 'all' ? 'Tümü' : status === 'live' ? 'Canlı' : status === 'upcoming' ? 'Bekliyor' : 'Bitmiş'}
                             </button>
                         ))}
                     </div>
@@ -136,78 +136,84 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {filteredMatches.map((match) => (
-                                <tr
-                                    key={match.id}
-                                    onClick={() => window.location.href = `/admin/livescore/${match.id}`}
-                                    className="hover:bg-blue-50 transition-colors cursor-pointer group"
-                                >
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className={`
+                            {filteredMatches.map((match) => {
+                                const isLive = match.status === 'live' || match.status === 'ht'
+                                return (
+                                    <tr
+                                        key={match.id}
+                                        onClick={() => window.location.href = `/admin/livescore/${match.id}`}
+                                        className="hover:bg-blue-50 transition-colors cursor-pointer group"
+                                    >
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className={`
                                             inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border w-fit
-                                            ${match.status === 'live'
-                                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                                                : 'bg-slate-100 text-slate-500 border-slate-200'}
+                                            ${isLive
+                                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                                    : match.status === 'ns'
+                                                        ? 'bg-blue-50 text-blue-600 border-blue-200'
+                                                        : 'bg-slate-100 text-slate-500 border-slate-200'}
                                         `}>
-                                            {match.status === 'live' && (
-                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                            )}
-                                            {match.status === 'live' ? `${match.minute}'` : match.status.toUpperCase()}
-                                        </div>
-                                    </td>
+                                                {isLive && (
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                )}
+                                                {isLive
+                                                    ? (match.status === 'ht' ? 'İY' : `${match.minute}'`)
+                                                    : match.status === 'ns' ? 'Başlamadı' : 'MS'}
+                                            </div>
+                                        </td>
 
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-lg">{match.leagueFlag}</span>
-                                            <span className="text-sm font-semibold text-slate-700">{match.league}</span>
-                                        </div>
-                                    </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-lg">{match.leagueFlag}</span>
+                                                <span className="text-sm font-semibold text-slate-700">{match.league}</span>
+                                            </div>
+                                        </td>
 
-                                    <td className="px-6 py-4">
-                                        <div className="text-xs text-slate-500 font-mono flex items-center gap-1">
-                                            <Clock className="w-3 h-3 opacity-50" />
-                                            {match.startTime}
-                                        </div>
-                                    </td>
+                                        <td className="px-6 py-4">
+                                            <div className="text-xs text-slate-500 font-mono flex items-center gap-1">
+                                                <Clock className="w-3 h-3 opacity-50" />
+                                                {match.startTime}
+                                            </div>
+                                        </td>
 
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-3">
-                                            <span className="text-sm font-semibold text-slate-700">{match.homeTeam}</span>
-                                            {match.homeLogo ? (
-                                                <img src={match.homeLogo} alt="" className="w-6 h-6 object-contain" />
-                                            ) : (
-                                                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">
-                                                    {match.homeTeam.substring(0, 1)}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex items-center justify-end gap-3">
+                                                <span className="text-sm font-semibold text-slate-700">{match.homeTeam}</span>
+                                                {match.homeLogo ? (
+                                                    <img src={match.homeLogo} alt="" className="w-6 h-6 object-contain" />
+                                                ) : (
+                                                    <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">
+                                                        {match.homeTeam.substring(0, 1)}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
 
-                                    <td className="px-6 py-4 text-center">
-                                        <div className={`
+                                        <td className="px-6 py-4 text-center">
+                                            <div className={`
                                             inline-block px-4 py-1.5 rounded-lg border font-mono font-bold text-sm shadow-sm
                                             ${match.status === 'live'
-                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                : 'bg-white text-slate-600 border-slate-200'}
+                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                    : 'bg-white text-slate-600 border-slate-200'}
                                         `}>
-                                            {match.homeScore} - {match.awayScore}
-                                        </div>
-                                    </td>
+                                                {match.homeScore} - {match.awayScore}
+                                            </div>
+                                        </td>
 
-                                    <td className="px-6 py-4 text-left">
-                                        <div className="flex items-center justify-start gap-3">
-                                            {match.awayLogo ? (
-                                                <img src={match.awayLogo} alt="" className="w-6 h-6 object-contain" />
-                                            ) : (
-                                                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">
-                                                    {match.awayTeam.substring(0, 1)}
-                                                </div>
-                                            )}
-                                            <span className="text-sm font-semibold text-slate-700">{match.awayTeam}</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                        <td className="px-6 py-4 text-left">
+                                            <div className="flex items-center justify-start gap-3">
+                                                {match.awayLogo ? (
+                                                    <img src={match.awayLogo} alt="" className="w-6 h-6 object-contain" />
+                                                ) : (
+                                                    <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">
+                                                        {match.awayTeam.substring(0, 1)}
+                                                    </div>
+                                                )}
+                                                <span className="text-sm font-semibold text-slate-700">{match.awayTeam}</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
 
                             {filteredMatches.length === 0 && (
                                 <tr>
