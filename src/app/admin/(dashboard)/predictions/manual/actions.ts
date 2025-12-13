@@ -6,52 +6,56 @@ import type { FixtureDto as TheSportsMatch } from '@/lib/thesports-api'
 // Re-export types for client components
 export type { TheSportsMatch }
 
-// Sample data for development/demo (used when API is not available)
-const sampleLiveMatches: TheSportsMatch[] = [
-    {
-        id: 'm1',
-        home_team_id: 'h1',
-        away_team_id: 'a1',
-        home: { name: 'Persekama Kab Madiun', logo: '' },
-        away: { name: 'PS Mojokerto Putra', logo: '' },
-        scores: { home: 0, away: 3 },
-        status: { id: 8, name: 'Finished' },
-        minute: 90,
-        time: Math.floor(Date.now() / 1000),
-        competition: { id: 'c1', name: 'Indonesia Liga 3' },
-        country: { id: 'ID', name: 'Indonesia' },
-    },
-    {
-        id: 'm2',
-        home_team_id: 'h2',
-        away_team_id: 'a2',
-        home: { name: 'Barcelona', logo: '' },
-        away: { name: 'Real Madrid', logo: '' },
-        scores: { home: 2, away: 1 },
-        status: { id: 2, name: '1H' },
-        minute: 67,
-        time: Math.floor(Date.now() / 1000),
-        competition: { id: 'c2', name: 'La Liga' },
-        country: { id: 'ES', name: 'Spain' },
-    },
-    {
-        id: 'm3',
-        home_team_id: 'h3',
-        away_team_id: 'a3',
-        home: { name: 'Bayern Munich', logo: '' },
-        away: { name: 'Dortmund', logo: '' },
-        scores: { home: 1, away: 1 },
-        status: { id: 3, name: 'HT' },
-        minute: 45,
-        time: Math.floor(Date.now() / 1000),
-        competition: { id: 'c3', name: 'Bundesliga' },
-        country: { id: 'DE', name: 'Germany' },
-    }
-]
+// Sample data generator for development/demo
+function getMockMatches(): TheSportsMatch[] {
+    const now = Math.floor(Date.now() / 1000)
+    return [
+        // Live - Super Lig
+        {
+            id: 'm1', home_team_id: 'h1', away_team_id: 'a1',
+            home: { name: 'Galatasaray', logo: 'https://upload.wikimedia.org/wikipedia/commons/f/f6/Galatasaray_Sports_Club_Logo.png' },
+            away: { name: 'Fenerbahçe', logo: 'https://upload.wikimedia.org/wikipedia/tr/8/86/Fenerbah%C3%A7e_SK.png' },
+            scores: { home: 1, away: 1 }, status: { id: 2, name: '1H' }, minute: 34,
+            time: now, competition: { id: 'c1', name: 'Süper Lig' }, country: { id: 'TR', name: 'Türkiye' }
+        },
+        // Live - Premier League
+        {
+            id: 'm2', home_team_id: 'h2', away_team_id: 'a2',
+            home: { name: 'Liverpool', logo: 'https://upload.wikimedia.org/wikipedia/en/0/0c/Liverpool_FC.svg' },
+            away: { name: 'Arsenal', logo: 'https://upload.wikimedia.org/wikipedia/en/5/53/Arsenal_FC.svg' },
+            scores: { home: 2, away: 0 }, status: { id: 4, name: '2H' }, minute: 78,
+            time: now, competition: { id: 'c2', name: 'Premier League' }, country: { id: 'EN', name: 'England' }
+        },
+        // Upcoming - La Liga
+        {
+            id: 'm3', home_team_id: 'h3', away_team_id: 'a3',
+            home: { name: 'Real Madrid', logo: 'https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg' },
+            away: { name: 'Barcelona', logo: 'https://upload.wikimedia.org/wikipedia/en/4/47/FC_Barcelona_%28crest%29.svg' },
+            scores: { home: 0, away: 0 }, status: { id: 1, name: 'NS' }, minute: 0,
+            time: now + 3600, competition: { id: 'c3', name: 'La Liga' }, country: { id: 'ES', name: 'Spain' }
+        },
+        // Finished - Serie A
+        {
+            id: 'm4', home_team_id: 'h4', away_team_id: 'a4',
+            home: { name: 'Juventus', logo: 'https://upload.wikimedia.org/wikipedia/commons/b/bc/Juventus_FC_2017_icon_%28black%29.svg' },
+            away: { name: 'AC Milan', logo: 'https://upload.wikimedia.org/wikipedia/commons/d/d0/Logo_of_AC_Milan.svg' },
+            scores: { home: 1, away: 2 }, status: { id: 8, name: 'FT' }, minute: 90,
+            time: now - 7200, competition: { id: 'c4', name: 'Serie A' }, country: { id: 'IT', name: 'Italy' }
+        },
+        // More Super Lig
+        {
+            id: 'm5', home_team_id: 'h5', away_team_id: 'a5',
+            home: { name: 'Beşiktaş', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/20/Logo_of_Be%C5%9Fikta%C5%9F_JK.svg' },
+            away: { name: 'Trabzonspor', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/20/Trabzonspor_Amblem.svg' },
+            scores: { home: 0, away: 0 }, status: { id: 1, name: 'NS' }, minute: 0,
+            time: now + 7200, competition: { id: 'c1', name: 'Süper Lig' }, country: { id: 'TR', name: 'Türkiye' }
+        }
+    ]
+}
 
 /**
  * Fetch live matches from TheSports API
- * Falls back to sample data if API is not configured
+ * Falls back to sample data if API is not configured OR returns empty
  */
 export async function fetchLiveMatches(): Promise<TheSportsMatch[]> {
     // Check if API is configured
@@ -62,8 +66,8 @@ export async function fetchLiveMatches(): Promise<TheSportsMatch[]> {
     console.log('[DEBUG] Env Vars -> User:', apiUser ? '***' : 'MISSING', 'Secret:', apiSecret ? '***' : 'MISSING')
 
     if (!apiSecret || !apiUser) {
-        console.warn('[DEBUG] TheSports API credentials missing, using sample data')
-        return sampleLiveMatches
+        console.warn('[DEBUG] TheSports API credentials missing, using mock data')
+        return getMockMatches()
     }
 
     try {
@@ -74,15 +78,13 @@ export async function fetchLiveMatches(): Promise<TheSportsMatch[]> {
         console.log('[DEBUG] API Response Count:', matches.length)
 
         if (matches.length === 0) {
-            console.warn('[DEBUG] API returned 0 matches for TODAY.')
-            // If genuinely 0 matches for the whole day, maybe fallback to sample? 
-            // Or just show empty. Let's return empty to be honest.
-            return matches
+            console.warn('[DEBUG] API returned 0 matches. Returning MOCK data for UI demonstration.')
+            return getMockMatches()
         }
         return matches
     } catch (error) {
         console.error('[DEBUG] Error fetching matches:', error)
-        return sampleLiveMatches
+        return getMockMatches()
     }
 }
 
