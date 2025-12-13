@@ -67,17 +67,21 @@ export async function fetchLiveMatches(): Promise<TheSportsMatch[]> {
     }
 
     try {
-        const matches = await TheSportsApi.getLiveMatches()
+        // Fetch ALL matches for today, not just live ones
+        // This ensures the table is populated even if no matches are currently live
+        const matches = await TheSportsApi.getFixturesByDate() // defaults to today
+
         console.log('[DEBUG] API Response Count:', matches.length)
+
         if (matches.length === 0) {
-            console.warn('[DEBUG] API returned 0 matches, forcing sample data for UI testing?')
-            // Let's NOT force sample data if API returns 0. If it's truly 0 live matches, show 0.
-            // But for now, user wants to see UI working, so let's stick to sample data only on ERROR.
+            console.warn('[DEBUG] API returned 0 matches for TODAY.')
+            // If genuinely 0 matches for the whole day, maybe fallback to sample? 
+            // Or just show empty. Let's return empty to be honest.
             return matches
         }
         return matches
     } catch (error) {
-        console.error('[DEBUG] Error fetching live matches:', error)
+        console.error('[DEBUG] Error fetching matches:', error)
         return sampleLiveMatches
     }
 }
