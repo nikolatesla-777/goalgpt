@@ -1,97 +1,25 @@
 'use server'
 
-import { TheSportsApi } from '@/lib/thesports-api'
-import type { FixtureDto as TheSportsMatch } from '@/lib/thesports-api'
+import { APIFootball, APIFootballFixture, APIFootballEvent, formatTeamLogo, formatLeagueLogo, getStatusLabel, isFixtureLive, isFixtureFinished } from '@/lib/api-football'
 
-// Re-export types for client components
-export type { TheSportsMatch }
+// ----------------------------------------------------------------------
+// Types
+// ----------------------------------------------------------------------
 
-// Sample data generator for development/demo
-function getMockMatches(): TheSportsMatch[] {
-    const now = Math.floor(Date.now() / 1000)
-    return [
-        // Live - Super Lig
-        {
-            id: 'm1', home_team_id: 'h1', away_team_id: 'a1',
-            home: { name: 'Galatasaray', logo: 'https://upload.wikimedia.org/wikipedia/commons/f/f6/Galatasaray_Sports_Club_Logo.png' },
-            away: { name: 'Fenerbahçe', logo: 'https://upload.wikimedia.org/wikipedia/tr/8/86/Fenerbah%C3%A7e_SK.png' },
-            scores: { home: 1, away: 1 }, status: { id: 2, name: '1H' }, minute: 34,
-            time: now, competition: { id: 'c1', name: 'Süper Lig' }, country: { id: 'TR', name: 'Türkiye' }
-        },
-        // Live - Premier League
-        {
-            id: 'm2', home_team_id: 'h2', away_team_id: 'a2',
-            home: { name: 'Liverpool', logo: 'https://upload.wikimedia.org/wikipedia/en/0/0c/Liverpool_FC.svg' },
-            away: { name: 'Arsenal', logo: 'https://upload.wikimedia.org/wikipedia/en/5/53/Arsenal_FC.svg' },
-            scores: { home: 2, away: 0 }, status: { id: 4, name: '2H' }, minute: 78,
-            time: now, competition: { id: 'c2', name: 'Premier League' }, country: { id: 'EN', name: 'England' }
-        },
-        // Upcoming - La Liga
-        {
-            id: 'm3', home_team_id: 'h3', away_team_id: 'a3',
-            home: { name: 'Real Madrid', logo: 'https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg' },
-            away: { name: 'Barcelona', logo: 'https://upload.wikimedia.org/wikipedia/en/4/47/FC_Barcelona_%28crest%29.svg' },
-            scores: { home: 0, away: 0 }, status: { id: 1, name: 'NS' }, minute: 0,
-            time: now + 3600, competition: { id: 'c3', name: 'La Liga' }, country: { id: 'ES', name: 'Spain' }
-        },
-        // Finished - Serie A
-        {
-            id: 'm4', home_team_id: 'h4', away_team_id: 'a4',
-            home: { name: 'Juventus', logo: 'https://upload.wikimedia.org/wikipedia/commons/b/bc/Juventus_FC_2017_icon_%28black%29.svg' },
-            away: { name: 'AC Milan', logo: 'https://upload.wikimedia.org/wikipedia/commons/d/d0/Logo_of_AC_Milan.svg' },
-            scores: { home: 1, away: 2 }, status: { id: 8, name: 'FT' }, minute: 90,
-            time: now - 7200, competition: { id: 'c4', name: 'Serie A' }, country: { id: 'IT', name: 'Italy' }
-        },
-        // More Super Lig
-        {
-            id: 'm5', home_team_id: 'h5', away_team_id: 'a5',
-            home: { name: 'Beşiktaş', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/20/Logo_of_Be%C5%9Fikta%C5%9F_JK.svg' },
-            away: { name: 'Trabzonspor', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/20/Trabzonspor_Amblem.svg' },
-            scores: { home: 0, away: 0 }, status: { id: 1, name: 'NS' }, minute: 0,
-            time: now + 7200, competition: { id: 'c1', name: 'Süper Lig' }, country: { id: 'TR', name: 'Türkiye' }
-        }
-    ]
+export interface MatchDetailData {
+    id: string
+    homeTeam: { name: string, logo: string, id: string }
+    awayTeam: { name: string, logo: string, id: string }
+    league: { name: string, country: string, flag: string, logo: string }
+    score: { home: number, away: number }
+    status: { short: string, long: string, elapsed: number | null }
+    startTime: string
+    venue?: string
+    referee?: string
+    stats: { label: string, home: number | string, away: number | string, color: string }[]
+    events: { time: string, type: string, team: 'home' | 'away', player?: string, detail?: string }[]
 }
 
-/**
- * Fetch matches from TheSports API
- * Now fetches ALL today's matches (scheduled + live + finished)
- */
-export async function fetchLiveMatches(): Promise<TheSportsMatch[]> {
-    const apiUser = process.env.THESPORTS_API_USER
-    const apiSecret = process.env.THESPORTS_API_SECRET
-
-    console.log('[TheSports] Fetching fixtures...')
-    console.log('[TheSports] API Credentials:', apiUser ? 'User OK' : 'USER MISSING', apiSecret ? 'Secret OK' : 'SECRET MISSING')
-
-    if (!apiSecret || !apiUser) {
-        console.error('[TheSports] ❌ API credentials missing! Add THESPORTS_API_USER and THESPORTS_API_SECRET to env.')
-        return getMockMatches() // Only fallback if NO credentials at all
-    }
-
-    try {
-        const matches = await TheSportsApi.getFixturesByDate()
-        console.log('[TheSports] ✅ API Response:', matches.length, 'matches found')
-
-        // If API returns matches, use them
-        if (matches.length > 0) {
-            return matches
-        }
-
-        // If 0 matches, log warning and return empty (not mock)
-        console.warn('[TheSports] ⚠️ API returned 0 matches for today')
-        return []
-
-    } catch (error: any) {
-        console.error('[TheSports] ❌ API Error:', error?.message || error)
-        return [] // Return empty on error, let UI show "No matches"
-    }
-}
-
-/**
- * Map TheSportsMatch to simpler format for manual prediction page
- * Note: /diary endpoint returns team IDs, not names. Team names need separate lookup.
- */
 export interface SimplifiedMatch {
     id: string
     homeTeam: string
@@ -100,136 +28,259 @@ export interface SimplifiedMatch {
     awayLogo: string
     homeScore: number
     awayScore: number
-    minute: number
+    minute: number | string
     status: 'live' | 'ht' | 'ft' | 'ns'
     league: string
+    country: string
     leagueFlag: string
+    leagueLogo: string
     startTime: string
     rawTime: number
+    hasAIPrediction?: boolean
 }
 
-export async function fetchLiveMatchesSimplified(): Promise<SimplifiedMatch[]> {
-    const matches = await fetchLiveMatches()
+// ----------------------------------------------------------------------
+// Match Fetching
+// ----------------------------------------------------------------------
 
-    if (matches.length === 0) {
-        console.log('[Mapping] No matches to process')
-        return []
-    }
-
-    console.log('[Mapping] Processing', matches.length, 'matches from API')
-
-    // 1. Collect all unique team IDs and competition IDs
-    const teamIds = new Set<string>()
-    const competitionIds = new Set<string>()
-
-    matches.forEach((m: any) => {
-        if (m.home_team_id) teamIds.add(m.home_team_id)
-        if (m.away_team_id) teamIds.add(m.away_team_id)
-        if (m.competition_id) competitionIds.add(m.competition_id)
-    })
-
-    console.log('[Mapping] Fetching', teamIds.size, 'teams and', competitionIds.size, 'competitions')
-
-    // 2. Batch fetch team and competition data from Supabase
-    const teamMap = new Map<string, { name: string, logo: string }>()
-    const competitionMap = new Map<string, { name: string, country_id: string }>()
-
+/**
+ * Fetch match detail by ID
+ */
+export async function fetchMatchDetail(matchId: string): Promise<MatchDetailData | null> {
     try {
-        const { createClient } = await import('@supabase/supabase-js')
-        const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-        )
-
-        // Fetch teams in batches of 500
-        const teamIdArray = Array.from(teamIds)
-        const batchSize = 500
-
-        for (let i = 0; i < teamIdArray.length; i += batchSize) {
-            const batch = teamIdArray.slice(i, i + batchSize)
-            const { data: teams, error } = await supabase
-                .from('teams')
-                .select('external_id, name, logo')
-                .in('external_id', batch)
-
-            if (!error && teams) {
-                teams.forEach(t => {
-                    teamMap.set(t.external_id, { name: t.name, logo: t.logo || '' })
-                })
-            }
+        // Handle mock IDs
+        if (matchId.startsWith('m') && matchId.length < 5) {
+            return getMockMatchDetail(matchId)
         }
 
-        // Fetch competitions
-        const compIdArray = Array.from(competitionIds)
-        for (let i = 0; i < compIdArray.length; i += batchSize) {
-            const batch = compIdArray.slice(i, i + batchSize)
-            const { data: comps, error } = await supabase
-                .from('ts_competitions')
-                .select('external_id, name, country_id')
-                .in('external_id', batch)
+        const fixture = await APIFootball.getFixtureById(Number(matchId))
 
-            if (!error && comps) {
-                comps.forEach(c => {
-                    competitionMap.set(c.external_id, { name: c.name, country_id: c.country_id || '' })
-                })
-            }
-        }
-
-        console.log('[Mapping] Retrieved', teamMap.size, 'teams and', competitionMap.size, 'competitions')
-    } catch (e) {
-        console.error('[Mapping] Failed to fetch from DB:', e)
-    }
-
-    // 3. Map matches with team and competition names
-    return matches.map((m: any) => {
-        try {
-            const rawTime = m.match_time || m.time || Math.floor(Date.now() / 1000)
-            const startTime = new Date(rawTime * 1000).toLocaleString('tr-TR')
-            const statusId = m.status_id ?? m.status?.id ?? 1
-            const homeScore = Array.isArray(m.home_scores) ? m.home_scores[0] : (m.scores?.home || 0)
-            const awayScore = Array.isArray(m.away_scores) ? m.away_scores[0] : (m.scores?.away || 0)
-
-            // Get team info from our cache map
-            const homeTeamInfo = teamMap.get(m.home_team_id)
-            const awayTeamInfo = teamMap.get(m.away_team_id)
-            const competitionInfo = competitionMap.get(m.competition_id)
-
-            return {
-                id: m.id || `unknown-${Math.random()}`,
-                homeTeam: homeTeamInfo?.name || m.home?.name || m.home_team_id?.substring(0, 10) || 'Home',
-                awayTeam: awayTeamInfo?.name || m.away?.name || m.away_team_id?.substring(0, 10) || 'Away',
-                homeLogo: homeTeamInfo?.logo || m.home?.logo || '',
-                awayLogo: awayTeamInfo?.logo || m.away?.logo || '',
-                homeScore,
-                awayScore,
-                minute: m.minute || 0,
-                status: mapStatusById(statusId),
-                league: competitionInfo?.name || m.competition?.name || m.competition_id?.substring(0, 10) || 'League',
-                leagueFlag: m.country?.name || '',
-                startTime,
-                rawTime,
-            }
-        } catch (e) {
-            console.error('Error mapping match:', m.id, e)
+        if (!fixture) {
+            console.error(`[FetchMatchDetail] Fixture ${matchId} not found`)
             return null
         }
-    }).filter(Boolean) as SimplifiedMatch[]
+
+        // Get statistics
+        const stats = await APIFootball.getFixtureStatistics(Number(matchId))
+
+        return transformFixtureToDetail(fixture, stats)
+
+    } catch (error) {
+        console.error('[FetchMatchDetail] Error:', error)
+        return null
+    }
 }
 
-function mapStatusById(statusId: number): 'live' | 'ht' | 'ft' | 'ns' {
-    // TheSports status IDs:
-    // 1=Not Started, 2=First Half, 3=Half Time, 4=Second Half, 5=Extra Time
-    // 6=Penalties, 7=Break, 8=Finished, 9=Postponed, 10=Cancelled, etc.
-    if (statusId === 1 || statusId === 0) return 'ns'
-    if (statusId === 8 || statusId === 10 || statusId === 11 || statusId === 9) return 'ft'
-    if (statusId === 3) return 'ht'
-    if ([2, 4, 5, 6, 7].includes(statusId)) return 'live'
-    return 'ns'
+/**
+ * Fetch live matches
+ */
+export async function fetchLiveMatches(): Promise<SimplifiedMatch[]> {
+    try {
+        const fixtures = await APIFootball.getLiveFixtures()
+        return fixtures.map(transformFixtureToSimplified)
+    } catch (error) {
+        console.error('[FetchLiveMatches] Error:', error)
+        return []
+    }
 }
 
-// ============================================================================
-// MANUAL PREDICTION ACTIONS
-// ============================================================================
+/**
+ * Fetch today's fixtures
+ */
+export async function fetchTodayFixtures(): Promise<SimplifiedMatch[]> {
+    try {
+        const fixtures = await APIFootball.getFixturesByDate()
+        return fixtures.map(transformFixtureToSimplified)
+    } catch (error) {
+        console.error('[FetchTodayFixtures] Error:', error)
+        return []
+    }
+}
+
+/**
+ * Fetch simplified matches for match picker
+ */
+export async function fetchLiveMatchesSimplified(): Promise<SimplifiedMatch[]> {
+    // Get both live and today's fixtures
+    const [live, today] = await Promise.all([
+        fetchLiveMatches(),
+        fetchTodayFixtures()
+    ])
+
+    // Merge and deduplicate
+    const merged = new Map<string, SimplifiedMatch>()
+    live.forEach(m => merged.set(m.id, m))
+    today.forEach(m => {
+        if (!merged.has(m.id)) merged.set(m.id, m)
+    })
+
+    // Sort by status (live first) then by time
+    return Array.from(merged.values()).sort((a, b) => {
+        const statusOrder = { live: 0, ht: 1, ns: 2, ft: 3 }
+        const statusDiff = (statusOrder[a.status] ?? 4) - (statusOrder[b.status] ?? 4)
+        if (statusDiff !== 0) return statusDiff
+        return a.rawTime - b.rawTime
+    })
+}
+
+/**
+ * Search teams
+ */
+export async function searchTeams(query: string) {
+    if (!query || query.length < 3) return []
+    const results = await APIFootball.searchTeams(query)
+    return results.map(r => ({
+        id: r.team.id,
+        name: r.team.name,
+        logo: r.team.logo,
+        country: r.team.country
+    }))
+}
+
+// ----------------------------------------------------------------------
+// Transform Helpers
+// ----------------------------------------------------------------------
+
+function transformFixtureToSimplified(fixture: APIFootballFixture): SimplifiedMatch {
+    const status = fixture.fixture.status.short
+    let mappedStatus: 'live' | 'ht' | 'ft' | 'ns' = 'ns'
+
+    if (isFixtureLive(status)) {
+        mappedStatus = status === 'HT' ? 'ht' : 'live'
+    } else if (isFixtureFinished(status)) {
+        mappedStatus = 'ft'
+    }
+
+    return {
+        id: String(fixture.fixture.id),
+        homeTeam: fixture.teams.home.name,
+        awayTeam: fixture.teams.away.name,
+        homeLogo: fixture.teams.home.logo,
+        awayLogo: fixture.teams.away.logo,
+        homeScore: fixture.goals.home ?? 0,
+        awayScore: fixture.goals.away ?? 0,
+        minute: fixture.fixture.status.elapsed ?? (mappedStatus === 'ht' ? 'HT' : 0),
+        status: mappedStatus,
+        league: fixture.league.name,
+        country: fixture.league.country || '',
+        leagueFlag: fixture.league.flag || '🌍',
+        leagueLogo: fixture.league.logo,
+        startTime: new Date(fixture.fixture.date).toLocaleString('tr-TR'),
+        rawTime: fixture.fixture.timestamp
+    }
+}
+
+function transformFixtureToDetail(fixture: APIFootballFixture, statistics: any[]): MatchDetailData {
+    // Map events
+    const events = (fixture.events || []).map(e => ({
+        time: `${e.time.elapsed}'${e.time.extra ? `+${e.time.extra}` : ''}`,
+        type: mapEventType(e.type, e.detail),
+        team: e.team.id === fixture.teams.home.id ? 'home' as const : 'away' as const,
+        player: e.player.name || undefined,
+        detail: e.detail
+    }))
+
+    // Map statistics
+    const statLabels: Record<string, { label: string, color: string }> = {
+        'Ball Possession': { label: 'Topla Oynama (%)', color: 'blue' },
+        'Shots on Goal': { label: 'İsabetli Şut', color: 'emerald' },
+        'Total Shots': { label: 'Toplam Şut', color: 'cyan' },
+        'Corner Kicks': { label: 'Korner', color: 'amber' },
+        'Fouls': { label: 'Faul', color: 'rose' },
+        'Offsides': { label: 'Ofsayt', color: 'purple' },
+        'Yellow Cards': { label: 'Sarı Kart', color: 'yellow' },
+        'Red Cards': { label: 'Kırmızı Kart', color: 'red' },
+        'Goalkeeper Saves': { label: 'Kaleci Kurtarışı', color: 'green' },
+        'Total passes': { label: 'Toplam Pas', color: 'indigo' },
+        'Passes accurate': { label: 'İsabetli Pas', color: 'teal' }
+    }
+
+    const homeStats = statistics.find(s => s.team.id === fixture.teams.home.id)?.statistics || []
+    const awayStats = statistics.find(s => s.team.id === fixture.teams.away.id)?.statistics || []
+
+    const stats = Object.entries(statLabels).map(([apiType, { label, color }]) => {
+        const homeStat = homeStats.find((s: any) => s.type === apiType)
+        const awayStat = awayStats.find((s: any) => s.type === apiType)
+        return {
+            label,
+            home: homeStat?.value ?? 0,
+            away: awayStat?.value ?? 0,
+            color
+        }
+    }).filter(s => s.home !== 0 || s.away !== 0)
+
+    return {
+        id: String(fixture.fixture.id),
+        homeTeam: {
+            name: fixture.teams.home.name,
+            logo: fixture.teams.home.logo,
+            id: String(fixture.teams.home.id)
+        },
+        awayTeam: {
+            name: fixture.teams.away.name,
+            logo: fixture.teams.away.logo,
+            id: String(fixture.teams.away.id)
+        },
+        league: {
+            name: fixture.league.name,
+            country: fixture.league.country,
+            flag: fixture.league.flag || '🌍',
+            logo: fixture.league.logo
+        },
+        score: {
+            home: fixture.goals.home ?? 0,
+            away: fixture.goals.away ?? 0
+        },
+        status: {
+            short: fixture.fixture.status.short,
+            long: getStatusLabel(fixture.fixture.status.short),
+            elapsed: fixture.fixture.status.elapsed
+        },
+        startTime: new Date(fixture.fixture.date).toLocaleString('tr-TR'),
+        venue: fixture.fixture.venue.name || undefined,
+        referee: fixture.fixture.referee || undefined,
+        stats,
+        events
+    }
+}
+
+function mapEventType(type: string, detail: string): string {
+    const typeMap: Record<string, string> = {
+        'Goal': detail === 'Own Goal' ? '⚽🔴 Kendi Kalesine' : detail === 'Penalty' ? '⚽🎯 Penaltı' : '⚽ Gol',
+        'Card': detail === 'Yellow Card' ? '🟨 Sarı Kart' : detail === 'Red Card' ? '🟥 Kırmızı Kart' : '🟨🟥 2. Sarı',
+        'subst': '🔄 Değişiklik',
+        'Var': '📺 VAR'
+    }
+    return typeMap[type] || type
+}
+
+// ----------------------------------------------------------------------
+// Mock Data
+// ----------------------------------------------------------------------
+
+function getMockMatchDetail(id: string): MatchDetailData | null {
+    return {
+        id,
+        homeTeam: { name: 'Mock Home', logo: '', id: 'h1' },
+        awayTeam: { name: 'Mock Away', logo: '', id: 'a1' },
+        league: { name: 'Mock League', country: 'Turkey', flag: '🇹🇷', logo: '' },
+        score: { home: 1, away: 0 },
+        status: { short: '1H', long: '1. Yarı', elapsed: 35 },
+        startTime: new Date().toLocaleString('tr-TR'),
+        venue: 'Mock Stadium',
+        stats: [
+            { label: 'Topla Oynama (%)', home: 55, away: 45, color: 'blue' },
+            { label: 'Şut', home: 8, away: 5, color: 'emerald' }
+        ],
+        events: [
+            { time: "23'", type: '⚽ Gol', team: 'home', player: 'Mock Player' }
+        ]
+    }
+}
+
+// ----------------------------------------------------------------------
+// Manual Prediction Actions
+// ----------------------------------------------------------------------
 
 export interface ManualPrediction {
     id: string
@@ -247,19 +298,16 @@ export interface ManualPrediction {
 }
 
 export async function publishManualPrediction(id: string) {
-    // In a real app, this would update Supabase
-    console.log('[Mock Action] Publishing prediction:', id)
+    console.log('[Manual Action] Publishing prediction:', id)
     return { success: true }
 }
 
 export async function updateManualResult(id: string, result: 'won' | 'lost' | 'void') {
-    // In a real app, this would update Supabase
-    console.log('[Mock Action] Updating result:', id, result)
+    console.log('[Manual Action] Updating result:', id, result)
     return { success: true }
 }
 
 export async function deleteManualPrediction(id: string) {
-    // In a real app, this would delete from Supabase
-    console.log('[Mock Action] Deleting prediction:', id)
+    console.log('[Manual Action] Deleting prediction:', id)
     return { success: true }
 }

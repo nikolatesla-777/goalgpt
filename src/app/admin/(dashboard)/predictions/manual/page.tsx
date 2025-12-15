@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { addManualPrediction, ManualPrediction } from '../prediction-store'
 
-// Sample live matches data - will come from TheSports API
+// Sample live matches data - will come from API-Football
 interface LiveMatch {
     id: string
     homeTeam: string

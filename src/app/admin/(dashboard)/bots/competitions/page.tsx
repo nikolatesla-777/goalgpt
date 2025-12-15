@@ -13,7 +13,7 @@ import {
     Settings
 } from 'lucide-react'
 
-// Mock data for competitions - will be replaced with real data from TheSports API
+// Mock data for competitions - will be replaced with real data from API-Football
 const competitions = [
     { id: '1', name: 'UEFA Champions League', country: 'Europe', logo: null, bots: ['ALERT: D', 'Alert Code: 2'], enabled: true },
     { id: '2', name: 'Premier League', country: 'England', logo: null, bots: ['ALERT: D', 'AlertCode: 17'], enabled: true },
@@ -187,8 +187,8 @@ export default function BotCompetitionsPage() {
                             key={filter}
                             onClick={() => setFilterEnabled(filter)}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filterEnabled === filter
-                                    ? 'bg-white/10 text-white border border-white/20'
-                                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                ? 'bg-white/10 text-white border border-white/20'
+                                : 'text-slate-400 hover:text-white hover:bg-white/5'
                                 }`}
                         >
                             {filter === 'all' ? 'Tümü' : filter === 'enabled' ? 'Aktif' : 'Pasif'}

@@ -1,11 +1,12 @@
+/**
+ * Auto Capper Service
+ * Evaluates pending predictions based on live API-Football data
+ */
 
 import { createClient } from '@/utils/supabase/server'
-import { TheSportsApi } from '@/lib/thesports-api'
-import { LiveMatchService } from './live-match-service'
+import { APIFootball, APIFootballFixture, isFixtureLive, isFixtureFinished } from '@/lib/api-football'
 
-// Types based on the legacy definition
 type PredictionStatus = 'pending' | 'won' | 'lost' | 'void'
-type MatchStatus = 'live' | 'ht' | 'ft' | 'aborted'
 
 export class AutoCapperService {
 
@@ -20,59 +21,45 @@ export class AutoCapperService {
             .from('predictions')
             .select('*')
             .eq('status', 'pending')
-            .not('match_uuid', 'is', null) // Only processed matched predictions
+            .not('match_uuid', 'is', null)
 
         if (error || !predictions || predictions.length === 0) {
-            console.log('No pending predictions to process.')
+            console.log('[AutoCapper] No pending predictions to process.')
             return { processed: 0, updates: 0 }
         }
 
-        console.log(`Processing ${predictions.length} pending predictions...`)
+        console.log(`[AutoCapper] Processing ${predictions.length} pending predictions...`)
 
         let updatesCount = 0
 
-        // 2. Fetch live data for these matches
-        // Optimization: We could fetch all live matches once, but predictions might be for old matches too.
-        // For now, let's just get the live matches bulk list and map them.
-        // If a match is NOT in live list, we might need to check if it ended today.
+        // 2. Get all live fixtures
+        const liveFixtures = await APIFootball.getLiveFixtures()
+        const liveFixtureMap = new Map(liveFixtures.map(f => [String(f.fixture.id), f]))
 
-        const liveMatches = await TheSportsApi.getLiveMatches()
-
-        // Create a map for fast lookup
-        const liveMatchMap = new Map(liveMatches.map(m => [m.id, m]))
-
+        // 3. Process each prediction
         for (const prediction of predictions) {
             try {
-                // If match is live, we have data. 
-                // If not live, it might have finished. We need to check results if not found in live.
-                let match = liveMatchMap.get(prediction.match_uuid)
+                let fixture = liveFixtureMap.get(prediction.match_uuid)
 
-                // If not in live map, maybe it finished recently? 
-                // Legacy system assumes we have "MatchLiveData". 
-                // Here, if it's not live, we should probably fetch details to see if it ended.
-                if (!match) {
-                    // Fetch individual match detail (API call per missing match - be careful with rate limits)
-                    // For MVP, we only process LIVE matches for early wins, 
-                    // and maybe check finished status if we can identify it.
-                    // Let's safe-guard: only fetch if we don't have it.
-                    const details = await TheSportsApi.getMatch(prediction.match_uuid)
-                    if (details) {
-                        match = details
-                    }
+                // If not in live list, fetch individually (might be finished)
+                if (!fixture) {
+                    fixture = await APIFootball.getFixtureById(Number(prediction.match_uuid)) || undefined
                 }
 
-                if (!match) {
-                    console.log(`Match data not found for prediction ${prediction.id} (Match: ${prediction.match_uuid})`)
+                if (!fixture) {
+                    console.log(`[AutoCapper] Fixture not found: ${prediction.match_uuid}`)
                     continue
                 }
 
-                // 3. Evaluate Match Logic
-                const result = this.evaluatePrediction(prediction.analysis || prediction.raw_text, match)
+                // 4. Evaluate prediction
+                const result = this.evaluatePrediction(
+                    prediction.analysis || prediction.raw_text,
+                    fixture
+                )
 
                 if (result) {
-                    console.log(`✅ Prediction RESOLVED: ${prediction.id} -> ${result}`)
+                    console.log(`[AutoCapper] ✅ Prediction RESOLVED: ${prediction.id} -> ${result}`)
 
-                    // 4. Update Database
                     await supabase
                         .from('predictions')
                         .update({
@@ -85,7 +72,7 @@ export class AutoCapperService {
                 }
 
             } catch (err) {
-                console.error(`Error processing prediction ${prediction.id}:`, err)
+                console.error(`[AutoCapper] Error processing prediction ${prediction.id}:`, err)
             }
         }
 
@@ -94,84 +81,170 @@ export class AutoCapperService {
 
     /**
      * Core Logic: Evaluates if a prediction is Won or Lost based on match state
-     * Ported from Legacy TS_LiveMatchService.cs
      */
-    static evaluatePrediction(predictionText: string, match: any): 'won' | 'lost' | null {
-        if (!predictionText) return null
+    static evaluatePrediction(predictionText: string, fixture: APIFootballFixture): 'won' | 'lost' | 'void' | null {
+        if (!predictionText || !fixture) return null
 
-        const homeScore = match.scores?.home ?? 0
-        const awayScore = match.scores?.away ?? 0
+        const status = fixture.fixture.status.short
+        const homeScore = fixture.goals.home ?? 0
+        const awayScore = fixture.goals.away ?? 0
         const totalGoals = homeScore + awayScore
-        const statusId = match.status?.id // 1=NotStarted, 8=Finished, etc.
 
-        // Status mapping (TheSports usually: 1=NotStarted, 2=1H, 3=HT, 4=2H, 5=ET, 7=Pen, 8=End)
-        // Legacy code used: 2 (1H), 3 (HT), 8 (End)
-        const isFirstHalf = statusId === 2
-        const isHalfTime = statusId === 3
-        const isFinished = statusId === 8
-        const isLive = [2, 3, 4, 5].includes(statusId)
+        // HT scores for IY bets
+        const htHome = fixture.score.halftime.home ?? 0
+        const htAway = fixture.score.halftime.away ?? 0
+        const htTotal = htHome + htAway
+
+        const isLive = isFixtureLive(status)
+        const isFinished = isFixtureFinished(status)
+        const isFirstHalf = status === '1H'
+        const isHalfTime = status === 'HT'
+        const isSecondHalf = status === '2H'
+
+        // Handle cancelled/postponed matches
+        if (['PST', 'CANC', 'ABD', 'AWD', 'WO'].includes(status)) {
+            return 'void'
+        }
 
         // --- Logic 1: "IY X.5 ÜST" (First Half Over) ---
-        // Regex: \bIY\s+(\d+(?:[.,]\d+)?)\s*ÜST\b
         const iyMatch = predictionText.match(/\bIY\s+(\d+(?:[.,]\d+)?)\s*ÜST/i)
         if (iyMatch) {
             const threshold = parseFloat(iyMatch[1].replace(',', '.'))
 
-            // Case A: Threshold already beaten (Early Win)
-            if (totalGoals > threshold) {
+            // Early Win: Already over threshold in 1H
+            if (isFirstHalf && totalGoals > threshold) {
                 return 'won'
             }
 
-            // Case B: HT reached/passed and not beaten -> Loss
-            // Note: If match finished (8) or in 2nd half (4), it's a loss IF it wasn't won.
-            // But be careful: totalGoals now might be FT score. We need HT score specifically for IY bets if match is past HT.
-            // TheSports API usually provides `scores: [0, 0, 1, 0, ...]` array or specific `ht_score`.
-            // Legacy logic: "if MatchStatus == 3 (HT) -> definitive decision".
-            // If match is finished, we technically need the HT score. 
-            // For now, let's implementations rely on "Live" checking. 
-            // If we are checking a LIVE match at HT (3), we can decide.
+            // HT or later: Use HT score
+            if (isHalfTime || isSecondHalf || isFinished) {
+                return htTotal > threshold ? 'won' : 'lost'
+            }
 
-            if (isHalfTime) {
+            return null // Still in 1H, wait
+        }
+
+        // --- Logic 2: "IY X.5 ALT" (First Half Under) ---
+        const iyAltMatch = predictionText.match(/\bIY\s+(\d+(?:[.,]\d+)?)\s*ALT/i)
+        if (iyAltMatch) {
+            const threshold = parseFloat(iyAltMatch[1].replace(',', '.'))
+
+            // Early Loss: Already over threshold in 1H
+            if (isFirstHalf && totalGoals > threshold) {
+                return 'lost'
+            }
+
+            // HT or later: Use HT score
+            if (isHalfTime || isSecondHalf || isFinished) {
+                return htTotal < threshold ? 'won' : 'lost'
+            }
+
+            return null
+        }
+
+        // --- Logic 3: "X.5 ÜST" (Full Time Over) ---
+        const overMatch = predictionText.match(/(\d+(?:[.,]\d+)?)\s*ÜST/i)
+        if (overMatch && !predictionText.match(/IY/i)) {
+            const threshold = parseFloat(overMatch[1].replace(',', '.'))
+
+            // Early Win
+            if (isLive && totalGoals > threshold) {
+                return 'won'
+            }
+
+            // FT: Final decision
+            if (isFinished) {
                 return totalGoals > threshold ? 'won' : 'lost'
             }
 
-            // Look at legacy: 
-            // "else if (prediction.MatchStatus == 2) { isSuccess = (totalNow > thr) ? true : (bool?)null; }"
-            // It implies we NEVER early-fail in 1H. Correct.
-
-            if (isFinished) {
-                // Fallback if we missed live window: Try to find HT score from API match object
-                // TheSports "score" field is often array: [current, ht, ...]
-                // If we can't find HT score, we might default to Current Score check? NO, that's dangerous (FT score > HT score).
-                // For safety: Only resolve IY bets while Live 1H/HT. 
-                // If finished, we leave it pending unless we are sure.
-                // Actually, let's assume if it's IY bet and match finished, we missed it... or we check FT score?
-                // Wait, if FT score is 0-0, then HT score was 0-0 => LOST.
-                if (totalGoals <= threshold) return 'lost'
-
-                // If FT score > threshold, HT score MIGHT be > threshold but not guaranteed. 
-                // We leave it pending/manual if we missed the window.
-            }
+            return null
         }
 
-        // --- Logic 2: "+1 Gol" (Live Goal) ---
-        // Regex: \(([\d.]+)\s*ÜST\)  -> matches "(0.5 ÜST)" or "(1.5 ÜST)" usually inside text.
-        // Legacy: prediction.Prediction.Contains("+") && Contains("Gol") && !Contains("IY")
-        if (predictionText.includes('+') && predictionText.includes('Gol') && !predictionText.includes('IY')) {
-            const overMatch = predictionText.match(/\(([\d.]+)\s*ÜST\)/i)
-            if (overMatch) {
-                const threshold = parseFloat(overMatch[1].replace(',', '.'))
+        // --- Logic 4: "X.5 ALT" (Full Time Under) ---
+        const underMatch = predictionText.match(/(\d+(?:[.,]\d+)?)\s*ALT/i)
+        if (underMatch && !predictionText.match(/IY/i)) {
+            const threshold = parseFloat(underMatch[1].replace(',', '.'))
 
-                // Early Win
+            // Early Loss
+            if (isLive && totalGoals > threshold) {
+                return 'lost'
+            }
+
+            // FT: Final decision
+            if (isFinished) {
+                return totalGoals < threshold ? 'won' : 'lost'
+            }
+
+            return null
+        }
+
+        // --- Logic 5: "+1 Gol" (Live Goal) ---
+        if (predictionText.includes('+') && predictionText.match(/Gol/i)) {
+            const bracketMatch = predictionText.match(/\(([\d.,]+)\s*ÜST\)/i)
+            if (bracketMatch) {
+                const threshold = parseFloat(bracketMatch[1].replace(',', '.'))
+
                 if (totalGoals > threshold) {
                     return 'won'
                 }
 
-                // Late Loss (Only on Finish)
                 if (isFinished) {
                     return 'lost'
                 }
             }
+            return null
+        }
+
+        // --- Logic 6: "MS 1" (Home Win) ---
+        if (predictionText.match(/\bMS\s*1\b/i)) {
+            if (isFinished) {
+                return homeScore > awayScore ? 'won' : 'lost'
+            }
+            return null
+        }
+
+        // --- Logic 7: "MS X" (Draw) ---
+        if (predictionText.match(/\bMS\s*X\b/i)) {
+            if (isFinished) {
+                return homeScore === awayScore ? 'won' : 'lost'
+            }
+            return null
+        }
+
+        // --- Logic 8: "MS 2" (Away Win) ---
+        if (predictionText.match(/\bMS\s*2\b/i)) {
+            if (isFinished) {
+                return awayScore > homeScore ? 'won' : 'lost'
+            }
+            return null
+        }
+
+        // --- Logic 9: "KG VAR" (Both Teams to Score) ---
+        if (predictionText.match(/\bKG\s*VAR\b/i)) {
+            // Early Win
+            if (homeScore > 0 && awayScore > 0) {
+                return 'won'
+            }
+
+            if (isFinished) {
+                return (homeScore > 0 && awayScore > 0) ? 'won' : 'lost'
+            }
+
+            return null
+        }
+
+        // --- Logic 10: "KG YOK" (No BTTS) ---
+        if (predictionText.match(/\bKG\s*YOK\b/i)) {
+            // Early Loss
+            if (homeScore > 0 && awayScore > 0) {
+                return 'lost'
+            }
+
+            if (isFinished) {
+                return (homeScore === 0 || awayScore === 0) ? 'won' : 'lost'
+            }
+
+            return null
         }
 
         return null // No decision yet

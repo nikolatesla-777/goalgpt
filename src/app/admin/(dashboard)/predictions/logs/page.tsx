@@ -201,7 +201,7 @@ const sampleLogs: PredictionLog[] = [
         tahmin: '+2 Gol',
         kontrol: 'pending',
         cleanText: 'PSG - Lyon ( 2 - 0 ) Ligue 1 Minute: 50 +2 Gol AlertCode: D [Kontrol Bekliyor]',
-        not: 'TheSports eşleştirmesi bekliyor'
+        not: 'API-Football eşleştirmesi bekliyor'
     },
 ]
 
@@ -373,7 +373,7 @@ export default function PredictionLogsPage() {
                                     <tr
                                         key={log.id}
                                         className={`hover:bg-white/[0.02] transition-colors cursor-pointer ${log.kontrol === 'error' ? 'bg-red-500/5' :
-                                                log.kontrol === 'pending' ? 'bg-yellow-500/5' : ''
+                                            log.kontrol === 'pending' ? 'bg-yellow-500/5' : ''
                                             }`}
                                         onClick={() => toggleRow(log.id)}
                                     >
@@ -499,7 +499,7 @@ export default function PredictionLogsPage() {
                             Bu sayfa AI sisteminden gelen ham tahmin verilerini gösterir. Her satıra tıklayarak CleanText detayını görebilirsiniz.
                             <br />
                             <span className="text-green-400">Başarılı:</span> Veri parse edildi ve tahmin oluşturuldu |
-                            <span className="text-yellow-400 ml-1">Bekliyor:</span> TheSports eşleştirmesi bekliyor |
+                            <span className="text-yellow-400 ml-1">Bekliyor:</span> API-Football eşleştirmesi bekliyor |
                             <span className="text-red-400 ml-1">Hata:</span> Parse veya format hatası
                         </p>
                     </div>

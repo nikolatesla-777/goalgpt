@@ -101,6 +101,7 @@ export function parsePredictionDetails(text: string): ParsedPredictionDetails {
 }
 
 export function formatTeamLogoUrl(teamId: string | number | null | undefined): string | null {
+    // API-Football format
     if (!teamId) return null
-    return `https://img.thesports.com/football/team/${teamId}.png`
+    return `https://media.api-sports.io/football/teams/${teamId}.png`
 }

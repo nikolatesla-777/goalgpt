@@ -70,10 +70,29 @@ export class SupabaseProvider implements IDataProvider {
             process.env.SUPABASE_SERVICE_ROLE_KEY || ''
         )
 
-        // 1. Insert/Update Prediction with Bot ID
+        // 0. FIRST ACTION RULE (CRITICAL)
+        // Check for existing pending prediction for this bot+match combo.
+        // User Requirement: "Her zaman ilk işlem. Diğerleriyle işimiz yok (Duplicate Suppression)"
+        if (prediction.botGroupId) {
+            const { data: existing } = await supabaseAdmin
+                .from('predictions_raw')
+                .select('id, match_minute, created_at')
+                .eq('bot_group_id', prediction.botGroupId)
+                .eq('home_team_name', prediction.homeTeam)
+                .eq('away_team_name', prediction.awayTeam)
+                .eq('status', 'pending') // Only block if still pending
+                .maybeSingle()
+
+            if (existing) {
+                console.log(`🔒 First Action Rule: Ignoring duplicate update for ${prediction.homeTeam} vs ${prediction.awayTeam}. Existing: ${existing.match_minute}' (New: ${prediction.minute}')`)
+                return
+            }
+        }
+
+        // 1. Insert Prediction (No Upsert on ID, allow new ID if logical check passed)
         const { error } = await supabaseAdmin
             .from('predictions_raw')
-            .upsert({
+            .insert({
                 external_id: prediction.matchId,
                 home_team_name: prediction.homeTeam,
                 away_team_name: prediction.awayTeam,
@@ -84,11 +103,8 @@ export class SupabaseProvider implements IDataProvider {
                 match_minute: prediction.minute || null,
                 raw_payload: prediction,
                 status: 'pending',
-                bot_group_id: prediction.botGroupId || null, // <--- SAVING BOT ID
+                bot_group_id: prediction.botGroupId || null,
                 received_at: new Date().toISOString()
-            }, {
-                onConflict: 'external_id',
-                ignoreDuplicates: false
             })
 
         if (error) {

@@ -20,10 +20,10 @@ import {
 } from 'lucide-react'
 import { getAdminPredictions, AdminPrediction } from './actions'
 
-// Helper: Format team logo URL
+// Helper: Format team logo URL (API-Football CDN)
 function formatTeamLogoUrl(teamId: string | number | null): string | null {
     if (!teamId) return null
-    return `https://img.thesports.com/football/team/${teamId}.png`
+    return `https://media.api-sports.io/football/teams/${teamId}.png`
 }
 
 // Helper: Country flag emoji
@@ -136,7 +136,7 @@ export default function PredictionsClientPage() {
 
         // Status
         if (statusFilter !== 'all') {
-            if (statusFilter === 'won' && p.result !== 'won' && p.result !== 'live_won') return false
+            if (statusFilter === 'won' && p.result !== 'won') return false
             if (statusFilter === 'lost' && p.result !== 'lost') return false
             if (statusFilter === 'pending' && p.result !== 'pending') return false
         }
@@ -153,7 +153,7 @@ export default function PredictionsClientPage() {
 
     // Stats
     const totalCount = predictions.length
-    const wonCount = predictions.filter(p => p.result === 'won' || p.result === 'live_won').length
+    const wonCount = predictions.filter(p => p.result === 'won').length
     const lostCount = predictions.filter(p => p.result === 'lost').length
     const pendingCount = predictions.filter(p => p.result === 'pending').length
 
@@ -215,8 +215,8 @@ export default function PredictionsClientPage() {
                                 key={status}
                                 onClick={() => { setStatusFilter(status); setCurrentPage(1) }}
                                 className={`px-3 py-2 rounded-lg text-xs font-bold transition-all border ${statusFilter === status
-                                        ? 'bg-slate-800 text-white border-slate-800'
-                                        : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                                    ? 'bg-slate-800 text-white border-slate-800'
+                                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
                                     }`}
                             >
                                 {status === 'all' ? 'Tümü' : status === 'pending' ? 'Bekleyen' : status === 'won' ? 'Kazanan' : 'Kaybeden'}
@@ -274,79 +274,98 @@ export default function PredictionsClientPage() {
                                     const rowNum = (currentPage - 1) * ITEMS_PER_PAGE + index + 1
                                     const homeLogoUrl = formatTeamLogoUrl(p.homeTeamId)
                                     const awayLogoUrl = formatTeamLogoUrl(p.awayTeamId)
-                                    const countryFlag = getCountryFlag(p.country)
+
+                                    // Bot renk sınıfı
+                                    const getBotColorClass = (name: string) => {
+                                        if (name.includes('ALERT')) return 'bg-orange-100 text-orange-700'
+                                        if (name.includes('Code Zero')) return 'bg-purple-100 text-purple-700'
+                                        if (name.includes('BOT 007')) return 'bg-blue-100 text-blue-700'
+                                        return 'bg-slate-100 text-slate-700'
+                                    }
 
                                     return (
                                         <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                                             {/* # */}
                                             <td className="px-4 py-3 text-slate-400 font-mono text-xs">{rowNum}</td>
 
-                                            {/* Tarih */}
+                                            {/* TARİH: 15.12.25 alt satır 05:21 */}
                                             <td className="px-4 py-3">
-                                                <div className="text-sm font-medium text-slate-700">{p.date}</div>
-                                                <div className="text-xs text-slate-400">{p.time}</div>
+                                                <div className="text-sm font-medium text-slate-700">{p.dateFormatted}</div>
+                                                <div className="text-xs text-slate-400">{p.timeFormatted}</div>
                                             </td>
 
-                                            {/* Bot */}
+                                            {/* BOT: Parser'dan gelen isim */}
                                             <td className="px-4 py-3">
-                                                <span className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-semibold ${p.botName?.includes('Alert') || p.botName?.includes('IY') ? 'bg-orange-100 text-orange-700' :
-                                                        p.botName?.includes('Algo') ? 'bg-blue-100 text-blue-700' :
-                                                            'bg-purple-100 text-purple-700'
-                                                    }`}>
-                                                    {p.botName || 'AI Bot'}
+                                                <span className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-semibold ${getBotColorClass(p.botName)}`}>
+                                                    {p.botName}
                                                 </span>
                                             </td>
 
-                                            {/* Lig */}
+                                            {/* LİG */}
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-base">{countryFlag}</span>
+                                                    <span className="text-base">{p.leagueFlag}</span>
                                                     <span className="text-sm text-slate-600 truncate max-w-[120px]" title={p.league}>{p.league}</span>
                                                 </div>
                                             </td>
 
-                                            {/* Ev Sahibi */}
+                                            {/* EV SAHİBİ: Tam isim, sığmazsa alt satıra */}
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-2">
                                                     {homeLogoUrl ? (
-                                                        <img src={homeLogoUrl} alt="" className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                                                        <img src={homeLogoUrl} alt="" className="w-6 h-6 object-contain flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                                                     ) : (
-                                                        <div className="w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center text-xs">⚽</div>
+                                                        <div className="w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center text-xs flex-shrink-0">⚽</div>
                                                     )}
-                                                    <span className="text-sm font-medium text-slate-800 truncate max-w-[100px]" title={p.homeTeam}>{p.homeTeam}</span>
+                                                    <span className="text-sm font-medium text-slate-800 break-words max-w-[120px]" title={p.homeTeam}>{p.homeTeam}</span>
                                                 </div>
                                             </td>
 
-                                            {/* Skor */}
+                                            {/* SKOR: Anlık skor + MS/IY/Canlı icon */}
                                             <td className="px-4 py-3 text-center">
-                                                <span className="inline-block bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-sm font-bold font-mono">
-                                                    {p.predictionScore || '-'}
-                                                </span>
+                                                <div className="flex flex-col items-center gap-0.5">
+                                                    <span className={`inline-block px-2.5 py-1 rounded-lg text-sm font-bold font-mono ${p.matchStatus === 'ft' ? 'bg-slate-800 text-white' :
+                                                        p.matchStatus === 'live' ? 'bg-emerald-500 text-white animate-pulse' :
+                                                            'bg-slate-100 text-slate-700'
+                                                        }`}>
+                                                        {p.currentScore}
+                                                    </span>
+                                                    {p.matchStatusText && (
+                                                        <span className={`text-[10px] font-bold ${p.matchStatusText === 'MS' ? 'text-slate-500' :
+                                                            p.matchStatusText === 'IY' ? 'text-amber-600' :
+                                                                'text-emerald-600'
+                                                            }`}>
+                                                            {p.matchStatusText}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
 
-                                            {/* Deplasman */}
+                                            {/* DEPLASMAN: Tam isim */}
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-2">
                                                     {awayLogoUrl ? (
-                                                        <img src={awayLogoUrl} alt="" className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                                                        <img src={awayLogoUrl} alt="" className="w-6 h-6 object-contain flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                                                     ) : (
-                                                        <div className="w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center text-xs">⚽</div>
+                                                        <div className="w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center text-xs flex-shrink-0">⚽</div>
                                                     )}
-                                                    <span className="text-sm font-medium text-slate-800 truncate max-w-[100px]" title={p.awayTeam}>{p.awayTeam}</span>
+                                                    <span className="text-sm font-medium text-slate-800 break-words max-w-[120px]" title={p.awayTeam}>{p.awayTeam}</span>
                                                 </div>
                                             </td>
 
-                                            {/* Tahmin */}
+                                            {/* TAHMİN: Üst satır tahmin, alt satır dakika ve skor */}
                                             <td className="px-4 py-3">
                                                 <div className="flex flex-col">
-                                                    <span className="text-sm font-bold text-emerald-600">{p.prediction || 'IY Gol'}</span>
-                                                    <span className="text-xs text-slate-400">{p.predictionMinute}</span>
+                                                    <span className="text-sm font-bold text-emerald-600">{p.prediction || '-'}</span>
+                                                    <span className="text-xs text-slate-400">
+                                                        {p.predictionMinute}' - {p.predictionScore}
+                                                    </span>
                                                 </div>
                                             </td>
 
-                                            {/* Durum */}
+                                            {/* DURUM */}
                                             <td className="px-4 py-3 text-center">
-                                                {p.result === 'won' || p.result === 'live_won' ? (
+                                                {p.result === 'won' ? (
                                                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 text-xs font-bold">
                                                         <CheckCircle2 size={12} />
                                                         Kazandı
@@ -418,8 +437,8 @@ export default function PredictionsClientPage() {
                                             key={pageNum}
                                             onClick={() => setCurrentPage(pageNum)}
                                             className={`w-8 h-8 rounded-lg text-xs font-semibold transition-colors ${currentPage === pageNum
-                                                    ? 'bg-emerald-500 text-white shadow-sm'
-                                                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                                ? 'bg-emerald-500 text-white shadow-sm'
+                                                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                                                 }`}
                                         >
                                             {pageNum}

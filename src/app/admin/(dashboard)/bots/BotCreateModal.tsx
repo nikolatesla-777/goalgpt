@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { createBotGroup } from './actions'
 
-// Sample competitions data matching TheSports structure
+// Sample competitions data matching API-Football structure
 interface Competition {
     id: string
     externalId: string
@@ -253,8 +253,8 @@ export default function BotCreateModal({ onClose, onCreated }: BotCreateModalPro
                                     <th className="text-left px-4 py-3 text-xs text-slate-400 w-16">
                                         <button onClick={toggleAll} className="flex items-center gap-2">
                                             <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${paginatedCompetitions.every(c => c.isSelected)
-                                                    ? 'bg-green-500 border-green-500'
-                                                    : 'border-white/20 hover:border-white/40'
+                                                ? 'bg-green-500 border-green-500'
+                                                : 'border-white/20 hover:border-white/40'
                                                 }`}>
                                                 {paginatedCompetitions.every(c => c.isSelected) && <Check size={12} className="text-white" />}
                                             </div>
@@ -277,8 +277,8 @@ export default function BotCreateModal({ onClose, onCreated }: BotCreateModalPro
                                     >
                                         <td className="px-4 py-3">
                                             <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${comp.isSelected
-                                                    ? 'bg-green-500 border-green-500'
-                                                    : 'border-white/20'
+                                                ? 'bg-green-500 border-green-500'
+                                                : 'border-white/20'
                                                 }`}>
                                                 {comp.isSelected && <Check size={12} className="text-white" />}
                                             </div>
@@ -336,8 +336,8 @@ export default function BotCreateModal({ onClose, onCreated }: BotCreateModalPro
                                             key={pageNum}
                                             onClick={() => setCurrentPage(pageNum)}
                                             className={`w-8 h-8 rounded text-sm font-medium transition-colors ${currentPage === pageNum
-                                                    ? 'bg-blue-500 text-white'
-                                                    : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                                ? 'bg-blue-500 text-white'
+                                                : 'bg-white/5 text-slate-400 hover:bg-white/10'
                                                 }`}
                                         >
                                             {pageNum}
