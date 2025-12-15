@@ -104,8 +104,48 @@ export default function PredictionsClientPage() {
     const [currentPage, setCurrentPage] = useState(1)
     const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'won' | 'lost'>('all')
 
+    // Live Data Map: key = matchId (TheSports UUID), value = { score: "1-0", minute: 45, status: "live" }
+    const [liveData, setLiveData] = useState<Record<string, { home: number, away: number, minute: number, status: string }>>({})
+
     useEffect(() => {
         fetchData()
+
+        // Realtime Subscription for Live Scores
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+        let channel: any = null
+
+        if (supabaseUrl && supabaseKey) {
+            import('@supabase/supabase-js').then(({ createClient }) => {
+                const supabase = createClient(supabaseUrl, supabaseKey)
+                channel = supabase
+                    .channel('admin-predictions-live')
+                    .on(
+                        'postgres_changes',
+                        { event: 'UPDATE', schema: 'public', table: 'live_matches' },
+                        (payload: any) => {
+                            const newData = payload.new
+                            if (!newData || !newData.id) return
+
+                            setLiveData(prev => ({
+                                ...prev,
+                                [newData.id]: {
+                                    home: newData.home_score,
+                                    away: newData.away_score,
+                                    minute: newData.minute,
+                                    status: newData.status_short
+                                }
+                            }))
+                        }
+                    )
+                    .subscribe()
+            })
+        }
+
+        return () => {
+            if (channel) channel.unsubscribe()
+        }
     }, [])
 
     const fetchData = async () => {
@@ -283,6 +323,27 @@ export default function PredictionsClientPage() {
                                         return 'bg-slate-100 text-slate-700'
                                     }
 
+                                    // Live Data Check
+                                    const liveMatch = p.matchId ? liveData[p.matchId] : null
+
+                                    // Determine Display Values
+                                    let displayScore = p.currentScore
+                                    let displayStatus = p.matchStatus
+                                    let displayStatusText = p.matchStatusText
+                                    let isLiveUpdate = false
+
+                                    if (liveMatch && p.result === 'pending') {
+                                        displayScore = `${liveMatch.home}-${liveMatch.away}`
+                                        displayStatus = 'live'
+                                        isLiveUpdate = true
+                                        // Status Text (Minute or Status)
+                                        if (['HT', 'FT', 'NS', 'INT'].includes(liveMatch.status)) {
+                                            displayStatusText = liveMatch.status
+                                        } else {
+                                            displayStatusText = `${liveMatch.minute}'`
+                                        }
+                                    }
+
                                     return (
                                         <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                                             {/* # */}
@@ -323,19 +384,30 @@ export default function PredictionsClientPage() {
 
                                             {/* SKOR: Anlık skor + MS/IY/Canlı icon */}
                                             <td className="px-4 py-3 text-center">
-                                                <div className="flex flex-col items-center gap-0.5">
-                                                    <span className={`inline-block px-2.5 py-1 rounded-lg text-sm font-bold font-mono ${p.matchStatus === 'ft' ? 'bg-slate-800 text-white' :
-                                                        p.matchStatus === 'live' ? 'bg-emerald-500 text-white animate-pulse' :
-                                                            'bg-slate-100 text-slate-700'
-                                                        }`}>
-                                                        {p.currentScore}
-                                                    </span>
-                                                    {p.matchStatusText && (
-                                                        <span className={`text-[10px] font-bold ${p.matchStatusText === 'MS' ? 'text-slate-500' :
-                                                            p.matchStatusText === 'IY' ? 'text-amber-600' :
-                                                                'text-emerald-600'
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <div className="relative">
+                                                        <span className={`inline-block px-2.5 py-1 rounded-lg text-sm font-bold font-mono transition-all ${displayStatus === 'ft' ? 'bg-slate-800 text-white' :
+                                                                isLiveUpdate ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200' :
+                                                                    displayStatus === 'live' ? 'bg-emerald-500 text-white' :
+                                                                        'bg-slate-100 text-slate-700'
                                                             }`}>
-                                                            {p.matchStatusText}
+                                                            {displayScore}
+                                                        </span>
+                                                        {isLiveUpdate && (
+                                                            <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 border border-white"></span>
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    {displayStatusText && (
+                                                        <span className={`text-[10px] font-bold ${displayStatusText === 'MS' ? 'text-slate-500' :
+                                                                isLiveUpdate ? 'text-emerald-600 animate-pulse' :
+                                                                    ['IY', 'HT'].includes(displayStatusText) ? 'text-amber-600' :
+                                                                        'text-emerald-600'
+                                                            }`}>
+                                                            {displayStatusText}
                                                         </span>
                                                     )}
                                                 </div>

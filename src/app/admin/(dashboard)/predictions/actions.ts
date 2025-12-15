@@ -10,6 +10,7 @@ const supabaseAdmin = createClient(
 
 export interface AdminPrediction {
     id: string
+    matchId: string | null // For real-time linking
     // TARİH: 15.12.25 alt satır 05:21
     dateFormatted: string      // "15.12.25"
     timeFormatted: string      // "05:21"
@@ -252,7 +253,8 @@ export async function getAdminPredictions(limit = 100): Promise<AdminPrediction[
                 (row.result === 'lost' || row.status === 'lost') ? 'lost' : 'pending'
 
             return {
-                id: row.external_id || row.id.toString(),
+                id: row.id.toString(),
+                matchId: row.external_id, // For linking with live_matches
                 dateFormatted: `${day}.${month}.${year}`,
                 timeFormatted: `${hours}:${minutes}`,
                 botName: botName,
