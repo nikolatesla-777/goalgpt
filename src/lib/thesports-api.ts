@@ -1,5 +1,5 @@
-
 import { APIFootballFixture, APIFootballTeam } from './api-football'
+export * from './api-football'
 
 const BASE_URL = process.env.THESPORTS_API_URL || 'https://api.thesports.com/v1'
 
