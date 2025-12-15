@@ -7,11 +7,7 @@
  */
 
 const BASE_URL = 'https://v3.football.api-sports.io'
-const API_KEY = process.env.API_FOOTBALL_KEY
 
-if (!API_KEY) {
-    console.warn('⚠️ API_FOOTBALL_KEY missing in environment variables.')
-}
 
 // -----------------------------------------------------------------------------
 // Types
@@ -29,7 +25,7 @@ export interface APIFootballTeam {
 
 export interface APIFootballFixture {
     fixture: {
-        id: number
+        id: number | string
         referee: string | null
         timezone: string
         date: string
@@ -47,7 +43,7 @@ export interface APIFootballFixture {
         }
     }
     league: {
-        id: number
+        id: number | string
         name: string
         country: string
         logo: string
@@ -122,6 +118,8 @@ export interface APIFootballStatistic {
 // -----------------------------------------------------------------------------
 
 async function apiRequest<T>(endpoint: string, params?: Record<string, string>): Promise<T[]> {
+    const API_KEY = process.env.API_FOOTBALL_KEY || process.env.THESPORTS_API_SECRET
+
     if (!API_KEY) {
         console.error('❌ API_FOOTBALL_KEY is not configured!')
         return []

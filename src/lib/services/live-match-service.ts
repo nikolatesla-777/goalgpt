@@ -1,12 +1,12 @@
 /**
  * Live Match Service
- * Matches Cenkler predictions with API-Football fixtures
+ * Matches Cenkler predictions with API-Football fixtures (via TheSports Adapter)
  */
 
-import { APIFootball, APIFootballFixture } from '@/lib/api-football'
+import { APIFootballFixture } from '@/lib/api-football'
+import { TheSportsAPI } from '@/lib/thesports-api'
 import { createClient } from '@supabase/supabase-js'
 
-// Supabase client for team lookup
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
@@ -23,7 +23,7 @@ export class LiveMatchService {
 
         try {
             // Step 1: Get today's fixtures
-            const fixtures = await APIFootball.getFixturesByDate()
+            const fixtures = await TheSportsAPI.getFixturesByDate()
 
             if (!fixtures || fixtures.length === 0) {
                 console.log('[LiveMatchService] No fixtures found for today')
@@ -45,7 +45,7 @@ export class LiveMatchService {
             tomorrow.setDate(tomorrow.getDate() + 1)
             const tomorrowStr = tomorrow.toISOString().split('T')[0]
 
-            const tomorrowFixtures = await APIFootball.getFixturesByDate(tomorrowStr)
+            const tomorrowFixtures = await TheSportsAPI.getFixturesByDate(tomorrowStr)
             const tomorrowMatch = this.findBestMatch(tomorrowFixtures, homeTeamName, awayTeamName)
 
             if (tomorrowMatch) {
@@ -127,42 +127,31 @@ export class LiveMatchService {
     }
 
     /**
-     * Search for a team by name using API-Football
+     * Search for a team by name using Adapter
      */
     static async searchTeam(query: string): Promise<{ id: number; name: string; logo: string } | null> {
-        if (!query || query.length < 3) return null
-
-        try {
-            const results = await APIFootball.searchTeams(query)
-
-            if (results && results.length > 0) {
-                const team = results[0].team
-                return {
-                    id: team.id,
-                    name: team.name,
-                    logo: team.logo
-                }
-            }
-
-            return null
-        } catch (error) {
-            console.error('[LiveMatchService] Team search error:', error)
-            return null
-        }
+        // Not implemented in Adapter
+        return null
     }
 
     /**
      * Get all live fixtures
      */
     static async getLiveFixtures(): Promise<APIFootballFixture[]> {
-        return APIFootball.getLiveFixtures()
+        return TheSportsAPI.getLiveFixtures()
     }
 
     /**
      * Get fixture details by ID
      */
     static async getFixtureDetails(fixtureId: number): Promise<APIFootballFixture | null> {
-        return APIFootball.getFixtureById(fixtureId)
+        // Fallback: try search in live list then today list
+        const live = await TheSportsAPI.getLiveFixtures()
+        const match = live.find(f => f.fixture.id === fixtureId)
+        if (match) return match
+
+        const today = await TheSportsAPI.getFixturesByDate()
+        return today.find(f => f.fixture.id === fixtureId) || null
     }
 
     /**

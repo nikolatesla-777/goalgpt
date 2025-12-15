@@ -11,6 +11,7 @@
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.87.0",
+    "@types/ws": "^8.18.1",
     "axios": "^1.13.2",
     "clsx": "^2.1.1",
     "csv-parse": "^6.1.0",
@@ -19,13 +20,15 @@
     "dotenv": "^17.2.3",
     "framer-motion": "^12.23.25",
     "lucide-react": "^0.556.0",
+    "mqtt": "^5.14.1",
     "next": "16.0.7",
     "node-iap": "^0.5.5",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "recharts": "^3.5.1",
     "stripe": "^20.0.0",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

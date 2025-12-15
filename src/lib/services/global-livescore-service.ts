@@ -5,7 +5,8 @@
  * NOW WITH AI PREDICTION MERGE FROM SUPABASE
  */
 
-import { APIFootball, APIFootballFixture, isFixtureLive, isFixtureFinished, getStatusLabel } from '@/lib/api-football'
+import { APIFootballFixture, isFixtureLive, isFixtureFinished, getStatusLabel } from '@/lib/api-football'
+import { TheSportsAPI } from '@/lib/thesports-api'
 import { MomentumEngine, MomentumInsight } from './momentum-engine'
 import { createClient } from '@supabase/supabase-js'
 import { PredictionEvaluator } from '@/lib/prediction-evaluator'
@@ -249,7 +250,7 @@ export class GlobalLivescoreService {
                 f.hasAIPrediction &&
                 f.aiPredictionData &&
                 f.aiPredictionData.result === 'pending' && // Only pending bets
-                ['1H', 'HT', '2H'].includes(f.fixture.status.short) // Only active live matches
+                ['1H', 'HT', '2H', 'ET', 'P', 'FT', 'AET', 'PEN'].includes(f.fixture.status.short) // Live AND Finished matches
             )
 
             if (candidates.length === 0) return
@@ -416,18 +417,30 @@ export class GlobalLivescoreService {
     static async fetchGlobalLivescore(includeFinished: boolean = true): Promise<LivescoreResponse> {
         console.log('[GlobalLivescore] Fetching all fixtures...')
 
-        // STEP 1: Fetch API-Football data
-        const [todayFixtures, liveFixtures] = await Promise.all([
-            APIFootball.getFixturesByDate(),
-            APIFootball.getLiveFixtures()
+        // STEP 1: Fetch fixtures for 3 days (Yesterday, Today, Tomorrow) + Live
+        const today = new Date()
+        const yesterday = new Date(today)
+        yesterday.setDate(today.getDate() - 1)
+        const tomorrow = new Date(today)
+        tomorrow.setDate(today.getDate() + 1)
+
+        const formatDate = (d: Date) => d.toISOString().split('T')[0]
+
+        const [yesterdayFixtures, todayFixtures, tomorrowFixtures, liveFixtures] = await Promise.all([
+            TheSportsAPI.getFixturesByDate(formatDate(yesterday)),
+            TheSportsAPI.getFixturesByDate(formatDate(today)),
+            TheSportsAPI.getFixturesByDate(formatDate(tomorrow)),
+            TheSportsAPI.getLiveFixtures()
         ])
 
         // STEP 2: Fetch Supabase predictions
         const dbPredictions = await this.fetchPredictionsFromDB()
 
         // Merge and deduplicate fixtures
-        const fixtureMap = new Map<number, APIFootballFixture>()
+        const fixtureMap = new Map<number | string, APIFootballFixture>()
+        yesterdayFixtures.forEach(f => fixtureMap.set(f.fixture.id, f))
         todayFixtures.forEach(f => fixtureMap.set(f.fixture.id, f))
+        tomorrowFixtures.forEach(f => fixtureMap.set(f.fixture.id, f))
         liveFixtures.forEach(f => fixtureMap.set(f.fixture.id, f))
 
         let allFixtures = Array.from(fixtureMap.values())

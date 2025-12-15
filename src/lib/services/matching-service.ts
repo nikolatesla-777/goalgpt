@@ -2,13 +2,22 @@
 import { LiveMatchService } from './live-match-service'
 import { createClient } from '@supabase/supabase-js'
 
-// Service Role Client for writing to aliases table
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-)
+// Service Role Client (Lazy Init)
+let supabaseAdminInstance: ReturnType<typeof createClient> | null = null
+
+function getSupabaseAdmin() {
+    if (!supabaseAdminInstance) {
+        supabaseAdminInstance = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+            process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+        )
+    }
+    return supabaseAdminInstance
+}
 
 export class MatchingService {
+    // ...
+
 
     /**
      * Main entry point to find the correct API-Football Fixture ID
@@ -65,8 +74,8 @@ export class MatchingService {
 
     private static async checkMemory(rawHome: string, rawAway: string): Promise<{ homeId: number, awayId: number } | null> {
         // Check local DB "team_aliases"
-        const { data: homeAlias } = await supabaseAdmin.from('team_aliases').select('team_id').eq('raw_name', rawHome).maybeSingle();
-        const { data: awayAlias } = await supabaseAdmin.from('team_aliases').select('team_id').eq('raw_name', rawAway).maybeSingle();
+        const { data: homeAlias } = await getSupabaseAdmin().from('team_aliases').select('team_id').eq('raw_name', rawHome).maybeSingle();
+        const { data: awayAlias } = await getSupabaseAdmin().from('team_aliases').select('team_id').eq('raw_name', rawAway).maybeSingle();
 
         if (homeAlias?.team_id && awayAlias?.team_id) {
             return { homeId: homeAlias.team_id, awayId: awayAlias.team_id };
@@ -129,7 +138,7 @@ export class MatchingService {
     private static async memorizeMapping(raw: string, official: string, id: number, confidence: number) {
         // Fire and forget insert
         try {
-            await supabaseAdmin.from('team_aliases').upsert({
+            await getSupabaseAdmin().from('team_aliases').upsert({
                 raw_name: raw,
                 mapped_name: official,
                 team_id: id,

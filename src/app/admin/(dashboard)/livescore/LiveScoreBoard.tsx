@@ -53,9 +53,9 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
         return { start: start.getTime() / 1000, end: end.getTime() / 1000, label: start.toLocaleDateString('tr-TR', { day: 'numeric', month: 'numeric' }) }
     }
 
+    const yesterdayBounds = getDayBounds(-1)
     const todayBounds = getDayBounds(0)
     const tomorrowBounds = getDayBounds(1)
-    const dayAfterBounds = getDayBounds(2)
 
     const refreshData = async () => {
         setIsRefreshing(true)
@@ -106,21 +106,77 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
         }
     }
 
-    // Poll every 15 seconds
+    // Poll every 30 seconds (fallback) but also listen to Realtime
     useEffect(() => {
+        // Initial Fetch
+        refreshData()
+
         const interval = setInterval(() => {
             refreshData()
-        }, 8000)
-        return () => clearInterval(interval)
+        }, 30000) // Increase polling interval since we have realtime
+
+        // Supabase Realtime Setup
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+        let channel: any = null
+        let supabaseClient: any = null
+
+        if (supabaseUrl && supabaseKey) {
+            import('@supabase/supabase-js').then(({ createClient }) => {
+                supabaseClient = createClient(supabaseUrl, supabaseKey)
+
+                channel = supabaseClient
+                    .channel('live-scores-realtime')
+                    .on(
+                        'postgres_changes',
+                        { event: 'UPDATE', schema: 'public', table: 'live_matches' },
+                        (payload: any) => {
+                            const newData = payload.new
+                            if (!newData || !newData.id) return
+
+                            // console.log('[Realtime] Update:', newData)
+
+                            setMatches(prev => prev.map(m => {
+                                if (String(m.id) === String(newData.id)) {
+                                    return {
+                                        ...m,
+                                        homeScore: newData.home_score,
+                                        awayScore: newData.away_score,
+                                        minute: newData.minute || m.minute,
+                                        status: mapStatusShortToUI(newData.status_short || m.status),
+                                        // Force live status if getting updates
+                                        // Update rawTime to affect sorting? Maybe not needed for just score.
+                                    }
+                                }
+                                return m
+                            }))
+                        }
+                    )
+                    .subscribe()
+            })
+        }
+
+        return () => {
+            clearInterval(interval)
+            if (channel && supabaseClient) supabaseClient.removeChannel(channel)
+        }
     }, [])
+
+    function mapStatusShortToUI(short: string): 'live' | 'ht' | 'ft' | 'ns' {
+        if (short === 'HT') return 'ht'
+        if (short === 'FT' || short === 'AET' || short === 'PEN') return 'ft'
+        if (['NS', 'PST', 'CANC', 'ABD'].includes(short)) return 'ns'
+        return 'live' // Default to live for 1H, 2H, ET, etc.
+    }
 
     // Filter matches
     const filteredMatches = matches.filter(m => {
         // Date Filter
         const matchTime = m.rawTime || 0
         let bounds = todayBounds
-        if (dateFilter === 1) bounds = tomorrowBounds
-        if (dateFilter === 2) bounds = dayAfterBounds
+        if (dateFilter === 0) bounds = yesterdayBounds
+        if (dateFilter === 2) bounds = tomorrowBounds
 
         // Allow some buffer for live matches that started late yesterday but are still live?
         // Actually simplest is strictly by start time for the fixture list context.
@@ -189,19 +245,19 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
                         onClick={() => setDateFilter(0)}
                         className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${dateFilter === 0 ? 'bg-black text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}
                     >
-                        Bugün ({todayBounds.label})
+                        Dün ({yesterdayBounds.label})
                     </button>
                     <button
                         onClick={() => setDateFilter(1)}
                         className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${dateFilter === 1 ? 'bg-black text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}
                     >
-                        Yarın ({tomorrowBounds.label})
+                        Bugün ({todayBounds.label})
                     </button>
                     <button
                         onClick={() => setDateFilter(2)}
                         className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${dateFilter === 2 ? 'bg-black text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}
                     >
-                        {dayAfterBounds.label}
+                        Yarın ({tomorrowBounds.label})
                     </button>
                 </div>
 
@@ -311,7 +367,24 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
                                                 <div className="flex flex-col items-center justify-center gap-0.5 text-[11px] min-w-[32px]">
                                                     {isLive ? (
                                                         <span className="text-[#e21b23] font-bold animate-pulse">
-                                                            {match.status === 'ht' ? 'İY' : `${match.minute}'`}
+                                                            {match.status === 'ht' ? 'İY' : (() => {
+                                                                const min = parseInt(typeof match.minute === 'string' ? match.minute : String(match.minute)) || 0
+                                                                // Simple logic: if > 45 in 1H show 45+, if > 90 in 2H show 90+
+                                                                // Note: match.minute comes from backend calculation now.
+                                                                // If backend sends 94, we can iterate:
+                                                                // If minute > 90 -> 90 + (min-90)
+                                                                // If minute > 45 && status == 1H? (Backend handles status checks)
+                                                                // Let's assume Minute > 90 means extra time for 2H.
+                                                                if (min > 90) return `90+${min - 90}'`
+                                                                if (min > 45 && min < 55 && match.status !== 'ht' && match.status !== 'live' /* wait status is 'live' for 1H too */) {
+                                                                    // This is tricky without knowing if it's 1H or 2H explicitly here if mapped to 'live'
+                                                                    // But backend sends linear minute now.
+                                                                    // Let's just trust the minute.
+                                                                    // Or if user wants specifically 90+ format:
+                                                                    return `${min}'`
+                                                                }
+                                                                return min > 90 ? `90+${min - 90}'` : `${min}'`
+                                                            })()}
                                                         </span>
                                                     ) : isFinished ? (
                                                         <span className="text-slate-500 font-medium">Bitti</span>
