@@ -109,6 +109,7 @@ export default function PredictionsClientPage() {
 
     useEffect(() => {
         fetchData()
+        fetchInitialLiveMatches()
 
         // Realtime Subscription for Live Scores
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -119,11 +120,13 @@ export default function PredictionsClientPage() {
         if (supabaseUrl && supabaseKey) {
             import('@supabase/supabase-js').then(({ createClient }) => {
                 const supabase = createClient(supabaseUrl, supabaseKey)
+
+                // Subscribe to both UPDATE and INSERT
                 channel = supabase
                     .channel('admin-predictions-live')
                     .on(
                         'postgres_changes',
-                        { event: 'UPDATE', schema: 'public', table: 'live_matches' },
+                        { event: '*', schema: 'public', table: 'live_matches' },
                         (payload: any) => {
                             const newData = payload.new
                             if (!newData || !newData.id) return
@@ -147,6 +150,29 @@ export default function PredictionsClientPage() {
             if (channel) channel.unsubscribe()
         }
     }, [])
+
+    const fetchInitialLiveMatches = async () => {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        if (!supabaseUrl || !supabaseKey) return
+
+        const { createClient } = await import('@supabase/supabase-js')
+        const supabase = createClient(supabaseUrl, supabaseKey)
+
+        const { data } = await supabase.from('live_matches').select('*')
+        if (data) {
+            const initialMap: Record<string, any> = {}
+            data.forEach((m: any) => {
+                initialMap[m.id] = {
+                    home: m.home_score,
+                    away: m.away_score,
+                    minute: m.minute,
+                    status: m.status_short
+                }
+            })
+            setLiveData(initialMap)
+        }
+    }
 
     const fetchData = async () => {
         setIsLoading(true)
@@ -387,9 +413,9 @@ export default function PredictionsClientPage() {
                                                 <div className="flex flex-col items-center gap-1">
                                                     <div className="relative">
                                                         <span className={`inline-block px-2.5 py-1 rounded-lg text-sm font-bold font-mono transition-all ${displayStatus === 'ft' ? 'bg-slate-800 text-white' :
-                                                                isLiveUpdate ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200' :
-                                                                    displayStatus === 'live' ? 'bg-emerald-500 text-white' :
-                                                                        'bg-slate-100 text-slate-700'
+                                                            isLiveUpdate ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200' :
+                                                                displayStatus === 'live' ? 'bg-emerald-500 text-white' :
+                                                                    'bg-slate-100 text-slate-700'
                                                             }`}>
                                                             {displayScore}
                                                         </span>
@@ -403,9 +429,9 @@ export default function PredictionsClientPage() {
 
                                                     {displayStatusText && (
                                                         <span className={`text-[10px] font-bold ${displayStatusText === 'MS' ? 'text-slate-500' :
-                                                                isLiveUpdate ? 'text-emerald-600 animate-pulse' :
-                                                                    ['IY', 'HT'].includes(displayStatusText) ? 'text-amber-600' :
-                                                                        'text-emerald-600'
+                                                            isLiveUpdate ? 'text-emerald-600 animate-pulse' :
+                                                                ['IY', 'HT'].includes(displayStatusText) ? 'text-amber-600' :
+                                                                    'text-emerald-600'
                                                             }`}>
                                                             {displayStatusText}
                                                         </span>
