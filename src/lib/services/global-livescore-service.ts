@@ -426,11 +426,21 @@ export class GlobalLivescoreService {
 
         const formatDate = (d: Date) => d.toISOString().split('T')[0]
 
+        // Helper to safely fetch fixtures or return empty array
+        const safeFetch = async (promise: Promise<APIFootballFixture[]>, label: string) => {
+            try {
+                return await promise
+            } catch (e) {
+                console.error(`[GlobalLivescore] Failed to fetch ${label}:`, e)
+                return []
+            }
+        }
+
         const [yesterdayFixtures, todayFixtures, tomorrowFixtures, liveFixtures] = await Promise.all([
-            TheSportsAPI.getFixturesByDate(formatDate(yesterday)),
-            TheSportsAPI.getFixturesByDate(formatDate(today)),
-            TheSportsAPI.getFixturesByDate(formatDate(tomorrow)),
-            TheSportsAPI.getLiveFixtures()
+            safeFetch(TheSportsAPI.getFixturesByDate(formatDate(yesterday)), 'yesterday'),
+            safeFetch(TheSportsAPI.getFixturesByDate(formatDate(today)), 'today'),
+            safeFetch(TheSportsAPI.getFixturesByDate(formatDate(tomorrow)), 'tomorrow'),
+            safeFetch(TheSportsAPI.getLiveFixtures(), 'live')
         ])
 
         // STEP 2: Fetch Supabase predictions
@@ -450,7 +460,7 @@ export class GlobalLivescoreService {
             allFixtures = allFixtures.filter(f => !isFixtureFinished(f.fixture.status.short))
         }
 
-        console.log(`[GlobalLivescore] Total fixtures: ${allFixtures.length}`)
+        console.log(`[GlobalLivescore] Total fixtures: ${allFixtures.length} (Y:${yesterdayFixtures.length}, T:${todayFixtures.length}, Tm:${tomorrowFixtures.length}, L:${liveFixtures.length})`)
 
         // STEP 3: THE MERGE - Enrich fixtures with AI predictions
         let matchedCount = 0
