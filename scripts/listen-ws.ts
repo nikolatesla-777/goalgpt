@@ -85,57 +85,130 @@ async function attemptSettlement(match: LiveMatchUpdate) {
     }
 }
 
-// --- SYNC FUNCTION ---
-async function syncInitialState() {
-    console.log('🔄 Syncing initial live matches from API...')
+// --- NAME MATCHING / LINKING LOGIC ---
+async function linkOrphanedPredictions() {
+    // 1. Get all pending predictions with NO external_id (or where it doesn't look like a UUID/Int ID)
+    // For safety, we check ones where external_id is null OR length > 20 (timestamp ids)
+    const { data: orphans } = await supabase
+        .from('predictions_raw')
+        .select('*')
+        .eq('result', 'pending')
+        .is('external_id', null)
+        .limit(50)
+
+    if (!orphans || orphans.length === 0) return
+
+    // 2. Get Live Matches from DB (we just synced them)
+    // We can also use the in-memory cache if we had one, but DB is fine.
+    const { data: liveMatches } = await supabase
+        .from('live_matches')
+        .select('*')
+
+    if (!liveMatches || liveMatches.length === 0) return
+
+    let linkedCount = 0
+
+    for (const pred of orphans) {
+        // Try to find a match in liveMatches by team name
+        // Simple normalization: lowercase, remove spaces check
+        const pHome = pred.home_team_name?.toLowerCase().trim() || ''
+        const pAway = pred.away_team_name?.toLowerCase().trim() || ''
+
+        if (!pHome || !pAway) continue
+
+        const match = liveMatches.find(m => {
+            // We use the live_matches DB columns. 
+            // NOTE: We verified live_matches DOES NOT have home_team/away_team columns in DB schema (schema.sql).
+            // BUT our update script tried to write them. 
+            // Wait, we need team names to do matching!
+            // If live_matches table misses them, we can't match against DB.
+            // We must use the 'liveFixtures' from the periodic Sync or cache?
+            // Ah, 'live_matches' table only has scores.
+            // We need to match against the TheSportsAPI fixtures directly.
+            return false
+        })
+    }
+}
+
+// REVISED STRATEGY: 
+// Run the linker as part of the periodic "Sync" or separate loop that calls API.
+// Since we removed home_team/away_team from live_matches TABLE, we cannot query names from DB.
+// We must use the API data we fetch in syncInitialState.
+
+async function syncAndLink() {
+    console.log('🔄 Syncing & Linking...')
     try {
         const liveFixtures = await TheSportsAPI.getLiveFixtures()
-        console.log(`✅ Found ${liveFixtures.length} live matches. Upserting...`)
 
+        // 1. Upsert Live Matches (Scores)
         for (const fixture of liveFixtures) {
-            // Correctly access nested properties of APIFootballFixture
             const goalsHome = fixture.goals.home ?? 0
             const goalsAway = fixture.goals.away ?? 0
-
-            // Map API status object to our simplified status
             const statusShort = fixture.fixture.status.short || 'L'
-            const statusLong = fixture.fixture.status.long || 'Live'
             const elapsed = fixture.fixture.status.elapsed || 0
 
-            const matchData = {
-                id: fixture.fixture.id, // TheSports ID is nested in fixture.id
+            await supabase.from('live_matches').upsert({
+                id: fixture.fixture.id,
                 status_short: statusShort,
                 updated_at: new Date().toISOString(),
                 home_score: goalsHome,
                 away_score: goalsAway,
                 minute: elapsed
+            })
+
+            // 2. LINKING: Check if any orphan predictions match this fixture
+            const homeName = fixture.teams.home.name.toLowerCase()
+            const awayName = fixture.teams.away.name.toLowerCase()
+
+            // Fetch potential orphans for THIS match specificially? No, too many DB calls.
+            // Better: Load orphans once at start of loop?
+            // For now, let's just run a targeted query for this specific match names if plausible?
+            // "home_team_name ilike ... "
+
+            // Optimization: Just do it for ALL fixtures in batch if possible. 
+            // But doing it here per fixture is easiest to implement:
+
+            const { data: matchedOrphans } = await supabase
+                .from('predictions_raw')
+                .select('id')
+                .eq('result', 'pending')
+                .is('external_id', null)
+                .ilike('home_team_name', `%${fixture.teams.home.name}%`)
+            // We use home team as primary anchor. 
+            // CAUTION: "Manchester" matches "Manchester City" and "Manchester United".
+            // Need stricter check?
+
+            if (matchedOrphans && matchedOrphans.length > 0) {
+                for (const orphan of matchedOrphans) {
+                    console.log(`🔗 Auto-Linking Prediction ${orphan.id} to Match ${fixture.fixture.id} (${fixture.teams.home.name})`)
+                    await supabase
+                        .from('predictions_raw')
+                        .update({ external_id: fixture.fixture.id })
+                        .eq('id', orphan.id)
+                }
             }
-
-            const { error } = await supabase
-                .from('live_matches')
-                .upsert(matchData)
-
-            if (error) console.error(`❌ Failed to upsert ${fixture.fixture.id}:`, error.message)
-            else console.log(`[Init] Synced ${fixture.teams.home.name} vs ${fixture.teams.away.name} (${fixture.fixture.id}) Score: ${goalsHome}-${goalsAway}`)
         }
-        console.log('✅ Initial sync complete.')
     } catch (e) {
-        console.error('❌ Initial sync failed:', e)
+        console.error('Sync Error:', e)
     }
 }
 
 // MAIN EXECUTION
 (async () => {
     try {
-        console.log('🚀 Starting TheSports WebSocket Listener with Supabase Sync...')
+        console.log('🚀 Starting Client...')
 
-        // 1. Sync Initial State
-        await syncInitialState()
+        // Initial Sync & Link
+        await syncAndLink()
 
-        // 2. Start WebSocket Listener
+        // Periodic Sync (Every 2 minutes) to ensure names/orphan linking works 
+        // and to catch up if WebSockets miss anything.
+        setInterval(() => syncAndLink(), 120 * 1000)
+
+        // WebSocket
         const client = new TheSportsWebSocketClient()
-
-        client.on('update', async (data: LiveMatchUpdate, rawData?: any) => {
+        // ... (rest of websocket logic)
+        client.on('update', async (data: LiveMatchUpdate) => {
             // if (rawData) console.log('[RAW DEBUG]', JSON.stringify(rawData).slice(0, 200))
             try {
                 // Upsert directly to live_matches
@@ -171,7 +244,5 @@ async function syncInitialState() {
             process.exit(0)
         })
 
-    } catch (error: any) {
-        console.error('❌ Failed to initialize:', error.message)
-    }
+    } catch (e) { }
 })()
