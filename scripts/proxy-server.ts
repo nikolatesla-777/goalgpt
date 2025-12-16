@@ -26,9 +26,9 @@ app.get('/health', (req, res) => {
 })
 
 // Proxy endpoint for TheSports API
-app.get('/api/thesports/*', async (req, res) => {
+app.get('/api/thesports/:path(*)', async (req, res) => {
     try {
-        const path = req.params[0] // e.g., "football/match/detail_live"
+        const path = req.params.path // e.g., "football/match/detail_live"
         const url = `${THESPORTS_BASE}/${path}?user=${USER}&secret=${SECRET}`
 
         console.log(`[Proxy] Requesting: ${THESPORTS_BASE}/${path}`)
