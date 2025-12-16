@@ -23,10 +23,10 @@ export class TheSportsAPI {
 
     /**
      * Get Live Matches
-     * Endpoint: /football/match/live
+     * Endpoint: /football/match/detail_live
      */
     static async getLiveFixtures(): Promise<APIFootballFixture[]> {
-        const data = await this.request<TheSportsMatch>('/football/match/live')
+        const data = await this.request<TheSportsMatch>('/football/match/detail_live')
         return data.map(this.mapToAPIFootballFixture)
     }
 
