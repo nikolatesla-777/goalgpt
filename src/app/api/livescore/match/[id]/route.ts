@@ -1,103 +1,87 @@
 import { NextResponse } from 'next/server'
-import { APIFootball, getStatusLabel } from '@/lib/api-football'
+import { TheSportsAPI } from '@/lib/thesports-api'
+import { STAT_TYPES, MATCH_STATUS } from '@/lib/thesports-types'
 
 export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/livescore/match/[id]
- * Returns detailed match data including events, stats
+ * Returns detailed match data including:
+ * - Basic match info
+ * - Team stats
+ * - Player stats
+ * - H2H (analysis)
+ * - Lineup
+ * - Standings (optional)
  */
 export async function GET(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = await params
-        const fixtureId = Number(id)
+        const { id: matchId } = await params
 
-        if (isNaN(fixtureId)) {
+        if (!matchId) {
             return NextResponse.json({ error: 'Invalid match ID' }, { status: 400 })
         }
 
-        // Fetch fixture with events
-        const fixture = await APIFootball.getFixtureById(fixtureId)
+        console.log(`[Match Detail API] Fetching match: ${matchId}`)
 
-        if (!fixture) {
-            return NextResponse.json({ error: 'Match not found' }, { status: 404 })
+        // Parallel fetch all data
+        const [teamStats, playerStats, lineup, analysis, halfStats] = await Promise.all([
+            TheSportsAPI.getTeamStats(matchId),
+            TheSportsAPI.getPlayerStats(matchId),
+            TheSportsAPI.getLineup(matchId),
+            TheSportsAPI.getMatchAnalysis(matchId),
+            TheSportsAPI.getHalfTeamStats(matchId)
+        ])
+
+        // Get team info
+        const homeTeamId = teamStats?.stats?.[0]?.team_id
+        const awayTeamId = teamStats?.stats?.[1]?.team_id
+
+        let homeTeam = null
+        let awayTeam = null
+
+        if (homeTeamId) {
+            homeTeam = await TheSportsAPI.getTeamInfo(homeTeamId)
+        }
+        if (awayTeamId) {
+            awayTeam = await TheSportsAPI.getTeamInfo(awayTeamId)
         }
 
-        // Fetch statistics
-        const stats = await APIFootball.getFixtureStatistics(fixtureId)
+        // Map team stats to readable format
+        const mappedStats = mapTeamStats(teamStats)
 
-        // Map events
-        const events = (fixture.events || []).map(e => ({
-            time: `${e.time.elapsed}'${e.time.extra ? `+${e.time.extra}` : ''}`,
-            type: mapEventType(e.type, e.detail),
-            team: e.team.id === fixture.teams.home.id ? 'home' : 'away',
-            player: e.player.name || null,
-            detail: e.detail
-        }))
+        // Map player stats
+        const mappedPlayerStats = mapPlayerStats(playerStats)
 
-        // Map statistics
-        const statLabels: Record<string, string> = {
-            'Ball Possession': 'Topla Oynama (%)',
-            'Shots on Goal': 'İsabetli Şut',
-            'Total Shots': 'Toplam Şut',
-            'Corner Kicks': 'Korner',
-            'Fouls': 'Faul',
-            'Offsides': 'Ofsayt',
-            'Yellow Cards': 'Sarı Kart',
-            'Red Cards': 'Kırmızı Kart',
-            'Goalkeeper Saves': 'Kaleci Kurtarışı',
-            'Total passes': 'Toplam Pas',
-            'Passes accurate': 'İsabetli Pas'
-        }
+        // Map lineup
+        const mappedLineup = mapLineup(lineup)
 
-        const homeStats = stats.find((s: any) => s.team.id === fixture.teams.home.id)?.statistics || []
-        const awayStats = stats.find((s: any) => s.team.id === fixture.teams.away.id)?.statistics || []
+        // Map H2H
+        const h2h = mapH2H(analysis)
 
-        const mappedStats = Object.entries(statLabels).map(([apiType, label]) => {
-            const homeStat = homeStats.find((s: any) => s.type === apiType)
-            const awayStat = awayStats.find((s: any) => s.type === apiType)
-            return {
-                label,
-                home: homeStat?.value ?? 0,
-                away: awayStat?.value ?? 0
-            }
-        }).filter(s => s.home !== 0 || s.away !== 0)
+        // Map half stats
+        const mappedHalfStats = mapHalfStats(halfStats)
 
         return NextResponse.json({
-            id: String(fixture.fixture.id),
+            id: matchId,
             homeTeam: {
-                name: fixture.teams.home.name,
-                logo: fixture.teams.home.logo,
-                id: String(fixture.teams.home.id)
+                id: homeTeamId || null,
+                name: homeTeam?.name || 'Ev Sahibi',
+                logo: homeTeam?.logo || ''
             },
             awayTeam: {
-                name: fixture.teams.away.name,
-                logo: fixture.teams.away.logo,
-                id: String(fixture.teams.away.id)
+                id: awayTeamId || null,
+                name: awayTeam?.name || 'Deplasman',
+                logo: awayTeam?.logo || ''
             },
-            league: {
-                id: fixture.league.id,
-                name: fixture.league.name,
-                country: fixture.league.country,
-                logo: fixture.league.logo
-            },
-            score: {
-                home: fixture.goals.home ?? 0,
-                away: fixture.goals.away ?? 0
-            },
-            status: {
-                short: fixture.fixture.status.short,
-                long: getStatusLabel(fixture.fixture.status.short),
-                elapsed: fixture.fixture.status.elapsed
-            },
-            startTime: new Date(fixture.fixture.date).toLocaleString('tr-TR'),
-            venue: fixture.fixture.venue.name || null,
-            referee: fixture.fixture.referee || null,
             stats: mappedStats,
-            events
+            playerStats: mappedPlayerStats,
+            lineup: mappedLineup,
+            h2h: h2h,
+            halfStats: mappedHalfStats
         })
     } catch (error) {
         console.error('[Match Detail API] Error:', error)
@@ -108,12 +92,157 @@ export async function GET(
     }
 }
 
-function mapEventType(type: string, detail: string): string {
-    const typeMap: Record<string, string> = {
-        'Goal': detail === 'Own Goal' ? '⚽🔴 Kendi Kalesine' : detail === 'Penalty' ? '⚽🎯 Penaltı' : '⚽ Gol',
-        'Card': detail === 'Yellow Card' ? '🟨 Sarı Kart' : detail === 'Red Card' ? '🟥 Kırmızı Kart' : '🟨🟥 2. Sarı',
-        'subst': '🔄 Değişiklik',
-        'Var': '📺 VAR'
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+function mapTeamStats(data: any): { label: string, home: number | string, away: number | string }[] {
+    if (!data?.stats || data.stats.length < 2) return []
+
+    const home = data.stats[0] || {}
+    const away = data.stats[1] || {}
+
+    const labels: [keyof typeof home, string][] = [
+        ['shots', 'Şut'],
+        ['shots_on_target', 'İsabetli Şut'],
+        ['possession', 'Top Hakimiyeti (%)'],
+        ['passes', 'Pas'],
+        ['passes_accuracy', 'Pas İsabeti (%)'],
+        ['corners', 'Korner'],
+        ['offsides', 'Ofsayt'],
+        ['fouls', 'Faul'],
+        ['yellow_cards', 'Sarı Kart'],
+        ['red_cards', 'Kırmızı Kart'],
+        ['goal_kicks', 'Kale Vuruşu'],
+        ['throw_ins', 'Taç Atışı']
+    ]
+
+    return labels
+        .map(([key, label]) => ({
+            label,
+            home: home[key] ?? 0,
+            away: away[key] ?? 0
+        }))
+        .filter(s => s.home !== 0 || s.away !== 0)
+}
+
+function mapPlayerStats(data: any): { home: any[], away: any[] } {
+    const result = { home: [] as any[], away: [] as any[] }
+
+    if (!data?.player_stats) return result
+
+    // Get first team_id as home, rest as away
+    const teamIds = new Set(data.player_stats.map((p: any) => p.team_id))
+    const teamIdArray = Array.from(teamIds) as string[]
+
+    for (const player of data.player_stats) {
+        const mappedPlayer = {
+            name: player.player_name || `Oyuncu ${player.player_id?.slice(-4)}`,
+            goals: player.goals || 0,
+            assists: player.assists || 0,
+            minutes: player.minutes_played || 0,
+            rating: player.rating || 0,
+            shots: player.shots || 0,
+            passes: player.passes || 0,
+            tackles: player.tackles || 0,
+            yellowCards: player.yellow_cards || 0,
+            redCards: player.red_cards || 0
+        }
+
+        if (player.team_id === teamIdArray[0]) {
+            result.home.push(mappedPlayer)
+        } else {
+            result.away.push(mappedPlayer)
+        }
     }
-    return typeMap[type] || type
+
+    // Sort by rating descending
+    result.home.sort((a, b) => b.rating - a.rating)
+    result.away.sort((a, b) => b.rating - a.rating)
+
+    return result
+}
+
+function mapLineup(data: any): { home: any, away: any } | null {
+    if (!data || !data.home || !data.away) return null
+
+    return {
+        home: {
+            formation: data.home.formation || '4-4-2',
+            manager: data.home.manager?.name || null,
+            lineup: (data.home.lineup || []).map((p: any) => ({
+                name: p.player_name,
+                number: p.shirt_number,
+                position: p.position,
+                grid: p.grid,
+                captain: p.captain === 1
+            })),
+            substitutes: (data.home.substitutes || []).map((p: any) => ({
+                name: p.player_name,
+                number: p.shirt_number,
+                position: p.position
+            }))
+        },
+        away: {
+            formation: data.away.formation || '4-4-2',
+            manager: data.away.manager?.name || null,
+            lineup: (data.away.lineup || []).map((p: any) => ({
+                name: p.player_name,
+                number: p.shirt_number,
+                position: p.position,
+                grid: p.grid,
+                captain: p.captain === 1
+            })),
+            substitutes: (data.away.substitutes || []).map((p: any) => ({
+                name: p.player_name,
+                number: p.shirt_number,
+                position: p.position
+            }))
+        }
+    }
+}
+
+function mapH2H(data: any): any[] {
+    if (!data?.h2h) return []
+
+    return data.h2h.slice(0, 5).map((match: any) => ({
+        matchId: match.match_id,
+        date: new Date(match.match_time * 1000).toLocaleDateString('tr-TR'),
+        homeTeamId: match.home_team_id,
+        awayTeamId: match.away_team_id,
+        homeScore: match.home_score,
+        awayScore: match.away_score
+    }))
+}
+
+function mapHalfStats(data: any): { firstHalf: any, secondHalf: any } | null {
+    if (!data?.p1) return null
+
+    const statKeys: [string, string][] = [
+        ['2', 'Şut'],
+        ['3', 'Korner'],
+        ['22', 'Tehlikeli Atak'],
+        ['23', 'İsabetli Şut'],
+        ['25', 'Top Hakimiyeti (%)']
+    ]
+
+    const firstHalf = statKeys.map(([key, label]) => {
+        const val = data.p1?.[key]
+        return {
+            label,
+            home: val?.[0] ?? 0,
+            away: val?.[1] ?? 0
+        }
+    }).filter(s => s.home !== 0 || s.away !== 0)
+
+    const secondHalf = data.p2 ? statKeys.map(([key, label]) => {
+        const val = data.p2?.[key]
+        return {
+            label,
+            home: val?.[0] ?? 0,
+            away: val?.[1] ?? 0
+        }
+    }).filter(s => s.home !== 0 || s.away !== 0) : []
+
+    return { firstHalf, secondHalf }
 }
