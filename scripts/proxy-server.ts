@@ -22,20 +22,16 @@ const SECRET = process.env.THESPORTS_API_SECRET
 
 // Health check
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', ip: process.env.VPS_IP || '142.93.103.128' })
+    res.json({ status: 'ok', ip: '142.93.103.128' })
 })
 
-// Proxy endpoint for TheSports API
-app.get('/api/thesports/:path(*)', async (req, res) => {
+// Live matches - detail
+app.get('/api/football/match/detail_live', async (req, res) => {
     try {
-        const path = req.params.path // e.g., "football/match/detail_live"
-        const url = `${THESPORTS_BASE}/${path}?user=${USER}&secret=${SECRET}`
-
-        console.log(`[Proxy] Requesting: ${THESPORTS_BASE}/${path}`)
-
+        const url = `${THESPORTS_BASE}/football/match/detail_live?user=${USER}&secret=${SECRET}`
+        console.log(`[Proxy] Requesting: /football/match/detail_live`)
         const response = await fetch(url)
         const data = await response.json()
-
         res.json(data)
     } catch (error: any) {
         console.error('[Proxy] Error:', error.message)
@@ -43,10 +39,27 @@ app.get('/api/thesports/:path(*)', async (req, res) => {
     }
 })
 
-// Legacy endpoint compatibility
-app.get('/api/football/match/detail_live', async (req, res) => {
+// Matches by date (diary)
+app.get('/api/football/match/diary', async (req, res) => {
     try {
-        const url = `${THESPORTS_BASE}/football/match/detail_live?user=${USER}&secret=${SECRET}`
+        const date = req.query.date || new Date().toISOString().split('T')[0]
+        const url = `${THESPORTS_BASE}/football/match/diary?user=${USER}&secret=${SECRET}&date=${date}`
+        console.log(`[Proxy] Requesting: /football/match/diary?date=${date}`)
+        const response = await fetch(url)
+        const data = await response.json()
+        res.json(data)
+    } catch (error: any) {
+        console.error('[Proxy] Error:', error.message)
+        res.status(500).json({ error: error.message })
+    }
+})
+
+// Team info
+app.get('/api/football/team/info', async (req, res) => {
+    try {
+        const id = req.query.id
+        const url = `${THESPORTS_BASE}/football/team/info?user=${USER}&secret=${SECRET}&id=${id}`
+        console.log(`[Proxy] Requesting: /football/team/info?id=${id}`)
         const response = await fetch(url)
         const data = await response.json()
         res.json(data)
@@ -55,10 +68,11 @@ app.get('/api/football/match/detail_live', async (req, res) => {
     }
 })
 
-app.get('/api/football/match/diary', async (req, res) => {
+// Competition info
+app.get('/api/football/competition/info', async (req, res) => {
     try {
-        const date = req.query.date || new Date().toISOString().split('T')[0]
-        const url = `${THESPORTS_BASE}/football/match/diary?user=${USER}&secret=${SECRET}&date=${date}`
+        const id = req.query.id
+        const url = `${THESPORTS_BASE}/football/competition/info?user=${USER}&secret=${SECRET}&id=${id}`
         const response = await fetch(url)
         const data = await response.json()
         res.json(data)
@@ -70,4 +84,5 @@ app.get('/api/football/match/diary', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`🚀 TheSports Proxy Server running on port ${PORT}`)
     console.log(`📡 Whitelisted IP: 142.93.103.128`)
+    console.log(`📋 Endpoints: /api/football/match/detail_live, /api/football/match/diary`)
 })
