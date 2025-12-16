@@ -208,8 +208,10 @@ async function syncAndLink() {
         // WebSocket
         const client = new TheSportsWebSocketClient()
         // ... (rest of websocket logic)
+
+
+
         client.on('update', async (data: LiveMatchUpdate) => {
-            // if (rawData) console.log('[RAW DEBUG]', JSON.stringify(rawData).slice(0, 200))
             try {
                 // Upsert directly to live_matches
                 const { error } = await supabase

@@ -99,7 +99,9 @@ export class TheSportsWebSocketClient extends EventEmitter {
     private onMessage(topic: string, payload: Buffer) {
         try {
             const msgStr = payload.toString()
-            // console.log(`[TheSportsMQTT] update on ${topic}:`, msgStr.slice(0, 100))
+            // Log full raw payload to analyze structure for Team Names
+            if (msgStr.length < 2000) console.log(`[TheSportsMQTT] RAW:`, msgStr)
+
 
             const data = JSON.parse(msgStr)
 
