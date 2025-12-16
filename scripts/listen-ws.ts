@@ -139,6 +139,7 @@ async function syncAndLink() {
     console.log('🔄 Syncing & Linking...')
     try {
         const liveFixtures = await TheSportsAPI.getLiveFixtures()
+        console.log(`[SyncLink] Got ${liveFixtures.length} fixtures`)
 
         // 1. Upsert Live Matches (Scores)
         for (const fixture of liveFixtures) {
@@ -146,9 +147,10 @@ async function syncAndLink() {
             const goalsAway = fixture.goals.away ?? 0
             const statusShort = fixture.fixture.status.short || 'L'
             const elapsed = fixture.fixture.status.elapsed || 0
+            const matchId = String(fixture.fixture.id)
 
             await supabase.from('live_matches').upsert({
-                id: fixture.fixture.id,
+                id: matchId,
                 status_short: statusShort,
                 updated_at: new Date().toISOString(),
                 home_score: goalsHome,
@@ -156,38 +158,43 @@ async function syncAndLink() {
                 minute: elapsed
             })
 
-            // 2. LINKING: Check if any orphan predictions match this fixture
-            const homeName = fixture.teams.home.name.toLowerCase()
-            const awayName = fixture.teams.away.name.toLowerCase()
+            // 2. LINKING: Find pending predictions that match this fixture by team name
+            const homeNamePart = fixture.teams.home.name.split(' ')[0] // First word
 
-            // Fetch potential orphans for THIS match specificially? No, too many DB calls.
-            // Better: Load orphans once at start of loop?
-            // For now, let's just run a targeted query for this specific match names if plausible?
-            // "home_team_name ilike ... "
-
-            // Optimization: Just do it for ALL fixtures in batch if possible. 
-            // But doing it here per fixture is easiest to implement:
-
-            const { data: matchedOrphans } = await supabase
+            // Get ALL pending predictions that might match (not just NULL external_id)
+            const { data: matchedPreds } = await supabase
                 .from('predictions_raw')
-                .select('id')
+                .select('id, external_id, home_team_name')
                 .eq('result', 'pending')
-                .is('external_id', null)
-                .ilike('home_team_name', `%${fixture.teams.home.name}%`)
-            // We use home team as primary anchor. 
-            // CAUTION: "Manchester" matches "Manchester City" and "Manchester United".
-            // Need stricter check?
+                .ilike('home_team_name', `%${homeNamePart}%`)
 
-            if (matchedOrphans && matchedOrphans.length > 0) {
-                for (const orphan of matchedOrphans) {
-                    console.log(`🔗 Auto-Linking Prediction ${orphan.id} to Match ${fixture.fixture.id} (${fixture.teams.home.name})`)
-                    await supabase
-                        .from('predictions_raw')
-                        .update({ external_id: fixture.fixture.id })
-                        .eq('id', orphan.id)
+            if (matchedPreds && matchedPreds.length > 0) {
+                for (const pred of matchedPreds) {
+                    // Only update if external_id is NOT already a TheSports UUID (16+ char alphanumeric)
+                    const isTheSportsId = pred.external_id && /^[a-z0-9]{10,}$/i.test(pred.external_id)
+
+                    if (!isTheSportsId) {
+                        console.log(`🔗 Linking: ${pred.home_team_name} → ${matchId}`)
+                        await supabase
+                            .from('predictions_raw')
+                            .update({ external_id: matchId })
+                            .eq('id', pred.id)
+                    }
                 }
             }
+
+            // 3. Attempt settlement for this fixture if it's live/finished
+            if (['1H', '2H', 'HT', 'FT', 'AET', 'PEN'].includes(statusShort)) {
+                const settleData = {
+                    uuid: matchId,
+                    score: { home: goalsHome, away: goalsAway },
+                    status: statusShort === 'FT' ? 8 : (statusShort === 'HT' ? 3 : 2),
+                    minute: elapsed
+                }
+                await attemptSettlement(settleData as any)
+            }
         }
+        console.log('✅ Sync complete')
     } catch (e) {
         console.error('Sync Error:', e)
     }
