@@ -2,7 +2,26 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { Activity, RefreshCw, Trophy, Clock, Search, Filter, Star, Bot } from 'lucide-react'
-import { fetchLiveMatchesSimplified, SimplifiedMatch } from '@/app/admin/(dashboard)/predictions/manual/actions'
+import { createClient } from '@supabase/supabase-js'
+
+export interface SimplifiedMatch {
+    id: string
+    homeTeam: string
+    awayTeam: string
+    homeLogo: string
+    awayLogo: string
+    homeScore: number
+    awayScore: number
+    minute: number | string
+    status: 'live' | 'ht' | 'ft' | 'ns'
+    league: string
+    country: string
+    leagueFlag: string
+    leagueLogo: string
+    startTime: string
+    rawTime: number
+    hasAIPrediction?: boolean
+}
 
 interface LiveScoreBoardProps {
     initialMatches: SimplifiedMatch[]
@@ -144,7 +163,7 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
                                         homeScore: newData.home_score,
                                         awayScore: newData.away_score,
                                         minute: newData.minute || m.minute,
-                                        status: mapStatusShortToUI(newData.status_short || m.status),
+                                        status: mapStatusShortToUI(newData.status_short || m.status || 'NS'),
                                         // Force live status if getting updates
                                         // Update rawTime to affect sorting? Maybe not needed for just score.
                                     }
@@ -368,7 +387,7 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
                                                     {isLive ? (
                                                         <span className="text-[#e21b23] font-bold animate-pulse">
                                                             {match.status === 'ht' ? 'İY' : (() => {
-                                                                const min = parseInt(typeof match.minute === 'string' ? match.minute : String(match.minute)) || 0
+                                                                const min = parseInt(typeof match.minute === 'string' ? match.minute : String(match.minute || 0)) || 0
                                                                 // Simple logic: if > 45 in 1H show 45+, if > 90 in 2H show 90+
                                                                 // Note: match.minute comes from backend calculation now.
                                                                 // If backend sends 94, we can iterate:
@@ -376,7 +395,7 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
                                                                 // If minute > 45 && status == 1H? (Backend handles status checks)
                                                                 // Let's assume Minute > 90 means extra time for 2H.
                                                                 if (min > 90) return `90+${min - 90}'`
-                                                                if (min > 45 && min < 55 && match.status !== 'ht' && match.status !== 'live' /* wait status is 'live' for 1H too */) {
+                                                                if (min > 45 && min < 55 && match.status !== 'ht') {
                                                                     // This is tricky without knowing if it's 1H or 2H explicitly here if mapped to 'live'
                                                                     // But backend sends linear minute now.
                                                                     // Let's just trust the minute.

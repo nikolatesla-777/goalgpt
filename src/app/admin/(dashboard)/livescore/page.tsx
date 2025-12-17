@@ -1,6 +1,6 @@
 
-import LiveScoreBoard from './LiveScoreBoard'
-import { SimplifiedMatch } from '@/app/admin/(dashboard)/predictions/manual/actions'
+import LiveScoreBoard, { SimplifiedMatch } from './LiveScoreBoard'
+// import { SimplifiedMatch } from '@/app/admin/(dashboard)/predictions/manual/actions' // Removed server import
 import { GlobalLivescoreService } from '@/lib/services/global-livescore-service'
 
 // Force dynamic rendering but relies on cached data service
