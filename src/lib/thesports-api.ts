@@ -444,9 +444,9 @@ export class TheSportsAPI {
 
         if (toFetch.length === 0) return result
 
-        // Chunking Logic (Optimized for speed)
-        // Previous 20/200ms was causing timeouts (~10s+ for 1000 teams)
-        const BATCH_SIZE = 100
+        // Chunking Logic (Optimized for reliability on Vercel)
+        // Previous 100/20ms might have been too aggressive for Vercel -> Proxy connection
+        const BATCH_SIZE = 50
         const chunks = []
         for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
             chunks.push(toFetch.slice(i, i + BATCH_SIZE))
@@ -455,12 +455,12 @@ export class TheSportsAPI {
         console.log(`[TheSportsAPI] Bulk fetching ${toFetch.length} teams in ${chunks.length} batches...`)
         const baseUrl = getProxyUrl()
 
-        // Process batches sequentially but faster
+        // Process batches sequentially with safer delays
         for (let i = 0; i < chunks.length; i++) {
             const chunk = chunks[i]
             try {
-                // Minimal delay to prevent flooding being flagged as DDoS, but keep it snappy
-                if (i > 0) await new Promise(resolve => setTimeout(resolve, 20))
+                // Increased delay to 100ms to be gentle on the proxy from Vercel IPs
+                if (i > 0) await new Promise(resolve => setTimeout(resolve, 100))
 
                 const res = await fetch(`${baseUrl}/api/football/team/bulk`, {
                     method: 'POST',
@@ -506,15 +506,15 @@ export class TheSportsAPI {
 
         console.log(`[TheSportsAPI] Fetching ${toFetch.length} competitions concurrently...`)
 
-        // Process in batches of 10 to avoid overwhelming the proxy
-        const BATCH_SIZE = 10
+        // Reduced batch size to 5 matches at a time to avoid triggering "Too Many Requests"
+        const BATCH_SIZE = 5
         for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
             const batch = toFetch.slice(i, i + BATCH_SIZE)
             await Promise.all(batch.map(id => this.getCompetitionInfo(id)))
 
-            // Tiny breathing room for the proxy
+            // Increased breathing room to 100ms
             if (i + BATCH_SIZE < toFetch.length) {
-                await new Promise(resolve => setTimeout(resolve, 20))
+                await new Promise(resolve => setTimeout(resolve, 100))
             }
         }
     }
