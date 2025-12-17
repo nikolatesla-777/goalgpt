@@ -33,7 +33,7 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
     const [statusFilter, setStatusFilter] = useState<'all' | 'live' | 'upcoming' | 'finished' | 'ai'>('all')
-    const [dateFilter, setDateFilter] = useState<0 | 1 | 2>(0) // 0=Today, 1=Tomorrow, 2=DayAfter
+    const [dateFilter, setDateFilter] = useState<0 | 1 | 2>(1) // 0=Yesterday, 1=Today, 2=Tomorrow
     const [favoriteMatchIds, setFavoriteMatchIds] = useState<Set<string>>(new Set())
 
     // Load favorites from localStorage on mount

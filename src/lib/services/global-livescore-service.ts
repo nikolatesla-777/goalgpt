@@ -129,7 +129,7 @@ export const getCachedGlobalLivescore = unstable_cache(
     async (includeFinished: boolean) => {
         return await GlobalLivescoreService.fetchStart(includeFinished)
     },
-    ['global-livescore-v1'],
+    ['global-livescore-v2'],
     {
         revalidate: 30, // 30 seconds cache
         tags: ['livescore']
