@@ -429,6 +429,9 @@ export class TheSportsAPI {
     /**
      * Bulk fetch team info
      */
+    /**
+     * Bulk fetch team info with chunking to avoid payload limits
+     */
     static async getTeamsBulk(teamIds: string[]): Promise<Map<string, TheSportsTeam>> {
         const result = new Map<string, TheSportsTeam>()
         const toFetch: string[] = []
@@ -442,28 +445,54 @@ export class TheSportsAPI {
             }
         }
 
-        // Fetch missing via bulk endpoint
-        if (toFetch.length > 0) {
-            const baseUrl = getProxyUrl()
+        if (toFetch.length === 0) return result
+
+        // Chunking Logic (Batch size 20 to be safe)
+        const BATCH_SIZE = 20
+        const chunks = []
+        for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
+            chunks.push(toFetch.slice(i, i + BATCH_SIZE))
+        }
+
+        console.log(`[TheSportsAPI] Bulk fetching ${toFetch.length} teams in ${chunks.length} batches...`)
+        const baseUrl = getProxyUrl()
+
+        // Process batches sequentially to be kind to the proxy/API
+        for (let i = 0; i < chunks.length; i++) {
+            const chunk = chunks[i]
             try {
+                // Introduce a small delay between batches
+                if (i > 0) await new Promise(resolve => setTimeout(resolve, 200))
+
                 const res = await fetch(`${baseUrl}/api/football/team/bulk`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ids: toFetch })
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ ids: chunk })
                 })
+
+                if (!res.ok) {
+                    console.error(`[TheSportsAPI] Bulk batch ${i + 1}/${chunks.length} failed: ${res.status}`)
+                    continue
+                }
+
                 const data = await res.json()
 
                 if (data.results) {
+                    let batchCount = 0
                     for (const [id, teamData] of Object.entries(data.results)) {
                         const team = (teamData as any).results?.[0]
                         if (team) {
                             teamCache.set(id, team)
                             result.set(id, team)
+                            batchCount++
                         }
                     }
+                    // console.log(`[TheSportsAPI] Batch ${i + 1}: Found ${batchCount} teams`)
                 }
             } catch (err) {
-                console.error('[TheSportsAPI] Bulk fetch error:', err)
+                console.error(`[TheSportsAPI] Bulk batch ${i + 1} error:`, err)
             }
         }
 
@@ -610,13 +639,13 @@ export class TheSportsAPI {
             teams: {
                 home: {
                     id: parseInt(match.home_team_id) || 0,
-                    name: homeTeam?.name || 'Home Team',
+                    name: homeTeam?.name || (parseInt(match.home_team_id) ? `Team #${match.home_team_id}` : 'Unknown Home'),
                     logo: homeTeam?.logo || '',
                     winner: null
                 },
                 away: {
                     id: parseInt(match.away_team_id) || 0,
-                    name: awayTeam?.name || 'Away Team',
+                    name: awayTeam?.name || (parseInt(match.away_team_id) ? `Team #${match.away_team_id}` : 'Unknown Away'),
                     logo: awayTeam?.logo || '',
                     winner: null
                 }
