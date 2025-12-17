@@ -127,8 +127,8 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
 
     // Poll every 30 seconds (fallback) but also listen to Realtime
     useEffect(() => {
-        // Initial Fetch
-        refreshData()
+        // Initial Fetch - DISABLED to prevent overwriting server props with potential rate-limited empty response
+        // refreshData()
 
         const interval = setInterval(() => {
             refreshData()
@@ -191,15 +191,19 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
 
     // Filter matches
     const filteredMatches = matches.filter(m => {
-        // Date Filter
-        const matchTime = m.rawTime || 0
-        let bounds = todayBounds
-        if (dateFilter === 0) bounds = yesterdayBounds
-        if (dateFilter === 2) bounds = tomorrowBounds
+        // Date Filter - SIMPLIFIED FOR DEBUGGING
+        // If server only sends Today's matches, we generally don't need to filter strictly on client
+        // unless viewing Yesterday/Tomorrow tabs which are currently disabled on server.
 
-        // Allow some buffer for live matches that started late yesterday but are still live?
-        // Actually simplest is strictly by start time for the fixture list context.
-        if (matchTime < bounds.start || matchTime > bounds.end) return false
+        // Only apply heavy date filtering if NOT Today (default) logic
+        // But since we reverted yesterday/tomorrow on server, let's just show everything for now
+        // to ensure data appears.
+
+        // const matchTime = m.rawTime || 0
+        // let bounds = todayBounds
+        // if (dateFilter === 0) bounds = yesterdayBounds
+        // if (dateFilter === 2) bounds = tomorrowBounds
+        // if (matchTime < bounds.start || matchTime > bounds.end) return false
 
         const matchesSearch =
             m.homeTeam.toLowerCase().includes(searchTerm.toLowerCase()) ||
