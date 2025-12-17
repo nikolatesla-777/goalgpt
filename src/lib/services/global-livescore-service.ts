@@ -426,22 +426,33 @@ export class GlobalLivescoreService {
 
         const formatDate = (d: Date) => d.toISOString().split('T')[0]
 
-        // Helper to safely fetch fixtures or return empty array
+        // Helper to safely fetch fixtures with delay
+        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
         const safeFetch = async (promise: Promise<APIFootballFixture[]>, label: string) => {
             try {
-                return await promise
+                console.log(`[GlobalLivescore] Fetching ${label}...`)
+                const result = await promise
+                console.log(`[GlobalLivescore] ${label}: ${result.length} matches`)
+                return result
             } catch (e) {
                 console.error(`[GlobalLivescore] Failed to fetch ${label}:`, e)
                 return []
             }
         }
 
-        const [yesterdayFixtures, todayFixtures, tomorrowFixtures, liveFixtures] = await Promise.all([
-            safeFetch(TheSportsAPI.getFixturesByDate(formatDate(yesterday)), 'yesterday'),
-            safeFetch(TheSportsAPI.getFixturesByDate(formatDate(today)), 'today'),
-            safeFetch(TheSportsAPI.getFixturesByDate(formatDate(tomorrow)), 'tomorrow'),
-            safeFetch(TheSportsAPI.getLiveFixtures(), 'live')
-        ])
+        // SEQUENTIAL FETCHING with delays to avoid rate limiting
+        // Only fetch today's matches and live - skip yesterday/tomorrow for speed
+        console.log('[GlobalLivescore] Starting sequential fetch...')
+
+        const todayFixtures = await safeFetch(TheSportsAPI.getFixturesByDate(formatDate(today)), 'today')
+        await delay(2000) // Wait 2 seconds
+
+        const liveFixtures = await safeFetch(TheSportsAPI.getLiveFixtures(), 'live')
+
+        // Skip yesterday and tomorrow for now to reduce API calls
+        const yesterdayFixtures: APIFootballFixture[] = []
+        const tomorrowFixtures: APIFootballFixture[] = []
 
         // STEP 2: Fetch Supabase predictions
         const dbPredictions = await this.fetchPredictionsFromDB()
