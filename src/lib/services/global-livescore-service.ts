@@ -181,8 +181,17 @@ export class GlobalLivescoreService {
         await delay(1000) // 1s delay
         const liveFixtures = await safeFetch(TheSportsAPI.getLiveFixtures(), 'live')
 
-        const yesterdayFixtures: APIFootballFixture[] = []
-        const tomorrowFixtures: APIFootballFixture[] = []
+        const yesterday = new Date(today)
+        yesterday.setDate(yesterday.getDate() - 1)
+
+        const tomorrow = new Date(today)
+        tomorrow.setDate(tomorrow.getDate() + 1)
+
+        await delay(1000)
+        const yesterdayFixtures = await safeFetch(TheSportsAPI.getFixturesByDate(formatDate(yesterday)), 'yesterday')
+
+        await delay(1000)
+        const tomorrowFixtures = await safeFetch(TheSportsAPI.getFixturesByDate(formatDate(tomorrow)), 'tomorrow')
 
         // STEP 2: Fetch Supabase predictions
         const dbPredictions = await this.fetchPredictionsFromDB()
