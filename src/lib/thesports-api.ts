@@ -447,8 +447,9 @@ export class TheSportsAPI {
 
         if (toFetch.length === 0) return result
 
-        // Chunking Logic (Batch size 20 to be safe)
-        const BATCH_SIZE = 20
+        // Chunking Logic (Optimized for speed)
+        // Previous 20/200ms was causing timeouts (~10s+ for 1000 teams)
+        const BATCH_SIZE = 100
         const chunks = []
         for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
             chunks.push(toFetch.slice(i, i + BATCH_SIZE))
@@ -457,12 +458,12 @@ export class TheSportsAPI {
         console.log(`[TheSportsAPI] Bulk fetching ${toFetch.length} teams in ${chunks.length} batches...`)
         const baseUrl = getProxyUrl()
 
-        // Process batches sequentially to be kind to the proxy/API
+        // Process batches sequentially but faster
         for (let i = 0; i < chunks.length; i++) {
             const chunk = chunks[i]
             try {
-                // Introduce a small delay between batches
-                if (i > 0) await new Promise(resolve => setTimeout(resolve, 200))
+                // Minimal delay to prevent flooding being flagged as DDoS, but keep it snappy
+                if (i > 0) await new Promise(resolve => setTimeout(resolve, 20))
 
                 const res = await fetch(`${baseUrl}/api/football/team/bulk`, {
                     method: 'POST',
