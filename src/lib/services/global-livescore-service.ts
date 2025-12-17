@@ -154,111 +154,152 @@ export class GlobalLivescoreService {
      * Internal Fetch Logic (Uncached)
      * Public so the standalone cache function can call it
      */
+    /**
+     * Internal Fetch Logic (DB-First)
+     * Fetches globally synced matches from Supabase
+     */
     public static async fetchStart(includeFinished: boolean): Promise<LivescoreResponse> {
-        console.log('[GlobalLivescore] Fetching all fixtures (Uncached)...')
+        console.log('[GlobalLivescore] Fetching fixtures from DB...')
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-        const formatDate = (d: Date) => d.toISOString().split('T')[0]
+        if (!supabaseUrl || !supabaseKey) return { timestamp: new Date().toISOString(), liveCount: 0, totalCount: 0, countries: [] }
 
-        // Helper to safely fetch fixtures with delay
-        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+        try {
+            const supabase = createClient(supabaseUrl, supabaseKey)
 
-        const safeFetch = async (promise: Promise<APIFootballFixture[]>, label: string) => {
-            try {
-                console.log(`[GlobalLivescore] Fetching ${label}...`)
-                const result = await promise
-                console.log(`[GlobalLivescore] ${label}: ${result.length} matches`)
-                return result
-            } catch (e) {
-                console.error(`[GlobalLivescore] Failed to fetch ${label}:`, e)
-                return []
+            // Today's range (UTC)
+            // Adjust based on how we want to show 'Daily' matches. Usually 00:00 to 23:59 UTC or local.
+            // For now, let's fetch EVERYTHING in the `ls_matches` table that corresponds to "Active Display Window"
+            // Since we sync by date, the table might contain multiple days if not cleaned.
+            // Assumption: Sync only puts relevant matches or we filter by date here.
+            // Let's filter by match_time for today +/- 24h to be safe, or just fetch all if volume is low.
+            // Better: Fetch all from `ls_matches`.
+
+            let query = supabase
+                .from('ls_matches')
+                .select(`
+                    *,
+                    competition:ls_competitions(*),
+                    home_team:ls_teams!home_team_id(*),
+                    away_team:ls_teams!away_team_id(*)
+                `)
+
+            // If we need performance, we can add filters.
+
+            const { data: fixtures, error } = await query
+
+            if (error) {
+                console.error('[GlobalLivescore] DB Error:', error)
+                return { timestamp: new Date().toISOString(), liveCount: 0, totalCount: 0, countries: [] }
             }
-        }
 
-        // SEQUENTIAL FETCHING with delays to avoid rate limiting
-        const today = new Date()
+            if (!fixtures) return { timestamp: new Date().toISOString(), liveCount: 0, totalCount: 0, countries: [] }
 
-        const todayFixtures = await safeFetch(TheSportsAPI.getFixturesByDate(formatDate(today)), 'today')
-        await delay(1000) // 1s delay
-        const liveFixtures = await safeFetch(TheSportsAPI.getLiveFixtures(), 'live')
+            // Map DB result to APIFootballFixture format internally for reuse
+            const mappedFixtures: any[] = fixtures.map((f: any) => ({
+                fixture: {
+                    id: f.id,
+                    timestamp: f.match_time,
+                    status: {
+                        short: f.live_status_code || 'NS',
+                        elapsed: f.live_minute,
+                        long: getStatusLabel(f.live_status_code || 'NS')
+                    },
+                    date: new Date(f.match_time * 1000).toISOString()
+                },
+                league: {
+                    id: Number(f.competition_id),
+                    name: f.competition?.name || 'Unknown',
+                    country: f.competition?.country_name || 'World',
+                    logo: f.competition?.logo || '',
+                    flag: null,
+                    section: f.competition?.country_name || 'World', // fallback
+                    round: f.raw_data?.league?.round // Try to extract from raw if needed
+                },
+                teams: {
+                    home: {
+                        id: Number(f.home_team_id),
+                        name: f.home_team?.name || 'Home',
+                        logo: f.home_team?.logo || ''
+                    },
+                    away: {
+                        id: Number(f.away_team_id),
+                        name: f.away_team?.name || 'Away',
+                        logo: f.away_team?.logo || ''
+                    }
+                },
+                goals: {
+                    home: f.home_scores?.[0] ?? 0,
+                    away: f.away_scores?.[0] ?? 0
+                },
+                score: {
+                    halftime: {
+                        home: f.home_scores?.[1] ?? 0,
+                        away: f.away_scores?.[1] ?? 0
+                    }
+                },
+                statistics: f.raw_data?.statistics // Use raw if available
+            }))
 
-        // const yesterday = new Date(today)
-        // yesterday.setDate(yesterday.getDate() - 1)
+            // STEP 2: Fetch Supabase predictions (Keep existing logic)
+            const dbPredictions = await this.fetchPredictionsFromDB()
 
-        // const tomorrow = new Date(today)
-        // tomorrow.setDate(tomorrow.getDate() + 1)
+            // Filter finished if needed
+            let finalFixtures = mappedFixtures
+            if (!includeFinished) {
+                finalFixtures = finalFixtures.filter(f => !isFixtureFinished(f.fixture.status.short))
+            }
 
-        // await delay(1000)
-        // const yesterdayFixtures = await safeFetch(TheSportsAPI.getFixturesByDate(formatDate(yesterday)), 'yesterday')
-        const yesterdayFixtures: APIFootballFixture[] = []
+            console.log(`[GlobalLivescore] Loaded ${finalFixtures.length} matches from DB`)
 
-        // await delay(1000)
-        // const tomorrowFixtures = await safeFetch(TheSportsAPI.getFixturesByDate(formatDate(tomorrow)), 'tomorrow')
-        const tomorrowFixtures: APIFootballFixture[] = []
+            // STEP 3: THE MERGE - Enrich fixtures with AI predictions
+            let matchedCount = 0
+            const enrichedFixtures = finalFixtures.map(fixture => {
+                const prediction = this.findPredictionForFixture(fixture, dbPredictions)
+                if (prediction) matchedCount++
 
-        // STEP 2: Fetch Supabase predictions
-        const dbPredictions = await this.fetchPredictionsFromDB()
+                // Calculate Momentum Insight
+                const stats = fixture.statistics ? MomentumEngine.parseStatistics(fixture.statistics) : null
+                const insight = MomentumEngine.analyze(stats, fixture.fixture.status.short, fixture.fixture.status.elapsed)
 
-        // Merge and deduplicate fixtures
-        const fixtureMap = new Map<number | string, APIFootballFixture>()
-        yesterdayFixtures.forEach(f => fixtureMap.set(f.fixture.id, f))
-        todayFixtures.forEach(f => fixtureMap.set(f.fixture.id, f))
-        tomorrowFixtures.forEach(f => fixtureMap.set(f.fixture.id, f))
-        liveFixtures.forEach(f => fixtureMap.set(f.fixture.id, f))
+                return {
+                    fixture,
+                    prediction,
+                    insight
+                }
+            })
 
-        let allFixtures = Array.from(fixtureMap.values())
+            // Auto-settlement logic (fire and forget)
+            this.processLiveSettlements(enrichedFixtures.map(e => ({
+                ...e.fixture,
+                hasAIPrediction: !!e.prediction,
+                aiPredictionData: e.prediction ? {
+                    id: e.prediction.id,
+                    prediction: e.prediction.prediction_type,
+                    bot_name: e.prediction.bot_name || 'System',
+                    minute: e.prediction.match_minute ? parseInt(e.prediction.match_minute) : null,
+                    confidence: e.prediction.confidence || 0,
+                    result: e.prediction.result || 'pending',
+                    home: e.fixture.teams.home.name,
+                    away: e.fixture.teams.away.name
+                } : null
+            })))
 
-        if (!includeFinished) {
-            allFixtures = allFixtures.filter(f => !isFixtureFinished(f.fixture.status.short))
-        }
-
-        console.log(`[GlobalLivescore] Total fixtures: ${allFixtures.length}`)
-
-        // STEP 3: THE MERGE - Enrich fixtures with AI predictions
-        let matchedCount = 0
-        const enrichedFixtures = allFixtures.map(fixture => {
-            const prediction = this.findPredictionForFixture(fixture, dbPredictions)
-
-            if (prediction) matchedCount++
-
-            // Calculate Momentum Insight
-            const stats = fixture.statistics ? MomentumEngine.parseStatistics(fixture.statistics) : null
-            const insight = MomentumEngine.analyze(stats, fixture.fixture.status.short, fixture.fixture.status.elapsed)
+            // Group by Country > League
+            const grouped = this.groupByCountryAndLeague(enrichedFixtures)
+            const liveCount = finalFixtures.filter(f => isFixtureLive(f.fixture.status.short)).length
 
             return {
-                fixture,
-                prediction,
-                insight
+                timestamp: new Date().toISOString(),
+                liveCount,
+                totalCount: finalFixtures.length,
+                countries: grouped
             }
-        })
 
-        console.log(`[GlobalLivescore] Matched ${matchedCount} predictions with LiveScore data`)
-
-        // Start auto-settlement asynchronously (fire and forget)
-        this.processLiveSettlements(enrichedFixtures.map(e => ({
-            ...e.fixture,
-            hasAIPrediction: !!e.prediction,
-            aiPredictionData: e.prediction ? {
-                id: e.prediction.id,
-                prediction: e.prediction.prediction_type,
-                bot_name: e.prediction.bot_name || 'System',
-                minute: e.prediction.match_minute ? parseInt(e.prediction.match_minute) : null,
-                confidence: e.prediction.confidence || 0,
-                result: e.prediction.result || 'pending',
-                home: e.fixture.teams.home.name,
-                away: e.fixture.teams.away.name
-            } : null
-        })))
-
-        // STEP 4: Group by Country > League
-        const grouped = this.groupByCountryAndLeague(enrichedFixtures)
-
-        const liveCount = allFixtures.filter(f => isFixtureLive(f.fixture.status.short)).length
-
-        return {
-            timestamp: new Date().toISOString(),
-            liveCount,
-            totalCount: allFixtures.length,
-            countries: grouped
+        } catch (e) {
+            console.error('[GlobalLivescore] Service Error:', e)
+            return { timestamp: new Date().toISOString(), liveCount: 0, totalCount: 0, countries: [] }
         }
     }
 

@@ -510,7 +510,15 @@ export class TheSportsAPI {
         const BATCH_SIZE = 5
         for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
             const batch = toFetch.slice(i, i + BATCH_SIZE)
-            await Promise.all(batch.map(id => this.getCompetitionInfo(id)))
+
+            // Wrap in individual catch blocks to prevent one failure from killing the batch
+            await Promise.all(batch.map(async id => {
+                try {
+                    await this.getCompetitionInfo(id)
+                } catch (err) {
+                    console.warn(`[TheSportsAPI] Failed to fetch competition ${id}, continuing without it.`)
+                }
+            }))
 
             // Increased breathing room to 100ms
             if (i + BATCH_SIZE < toFetch.length) {

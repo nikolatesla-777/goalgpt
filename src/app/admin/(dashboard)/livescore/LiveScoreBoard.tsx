@@ -149,7 +149,7 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
                     .channel('live-scores-realtime')
                     .on(
                         'postgres_changes',
-                        { event: 'UPDATE', schema: 'public', table: 'live_matches' },
+                        { event: 'UPDATE', schema: 'public', table: 'ls_matches' },
                         (payload: any) => {
                             const newData = payload.new
                             if (!newData || !newData.id) return
@@ -158,14 +158,17 @@ export default function LiveScoreBoard({ initialMatches }: LiveScoreBoardProps) 
 
                             setMatches(prev => prev.map(m => {
                                 if (String(m.id) === String(newData.id)) {
+                                    // Parse scores from JSONB [total, 1h, ... ]
+                                    const hScore = Array.isArray(newData.home_scores) ? newData.home_scores[0] : (m.homeScore || 0)
+                                    const aScore = Array.isArray(newData.away_scores) ? newData.away_scores[0] : (m.awayScore || 0)
+
                                     return {
                                         ...m,
-                                        homeScore: newData.home_score,
-                                        awayScore: newData.away_score,
-                                        minute: newData.minute || m.minute,
-                                        status: mapStatusShortToUI(newData.status_short || m.status || 'NS'),
-                                        // Force live status if getting updates
-                                        // Update rawTime to affect sorting? Maybe not needed for just score.
+                                        homeScore: hScore,
+                                        awayScore: aScore,
+                                        minute: newData.live_minute || m.minute,
+                                        status: mapStatusShortToUI(newData.live_status_code || m.status || 'NS'),
+                                        // Update rawTime? Usually stays same.
                                     }
                                 }
                                 return m
