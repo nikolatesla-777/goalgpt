@@ -120,7 +120,12 @@ function normalizeTeamName(name: string): string {
 // Uses Next.js unstable_cache to persist data across requests/functions
 // -----------------------------------------------------------------------------
 
-const getCachedGlobalLivescore = unstable_cache(
+/**
+ * Fetch ALL fixtures for today + live matches
+ * CACHED via Next.js Data Cache (30s)
+ * Exported directly for use in Server Components and API Routes
+ */
+export const getCachedGlobalLivescore = unstable_cache(
     async (includeFinished: boolean) => {
         return await GlobalLivescoreService.fetchStart(includeFinished)
     },
@@ -139,7 +144,7 @@ export class GlobalLivescoreService {
 
     /**
      * Fetch ALL fixtures for today + live matches
-     * CACHED via Next.js Data Cache (30s)
+     * Uses the exported cached function
      */
     static async fetchGlobalLivescore(includeFinished: boolean = true): Promise<LivescoreResponse> {
         return await getCachedGlobalLivescore(includeFinished)
@@ -205,7 +210,8 @@ export class GlobalLivescoreService {
             if (prediction) matchedCount++
 
             // Calculate Momentum Insight
-            const insight = MomentumEngine.analyze(fixture)
+            const stats = fixture.statistics ? MomentumEngine.parseStatistics(fixture.statistics) : null
+            const insight = MomentumEngine.analyze(stats, fixture.fixture.status.short, fixture.fixture.status.elapsed)
 
             return {
                 fixture,
@@ -278,7 +284,7 @@ export class GlobalLivescoreService {
 
             if (!leagueGroup) {
                 leagueGroup = {
-                    id: leagueId,
+                    id: Number(leagueId),
                     name: leagueName,
                     logo: leagueLogo,
                     round: f.league.round,
@@ -318,7 +324,9 @@ export class GlobalLivescoreService {
                 } : null
             }
 
-            leagueGroup.matches.push(matchCard)
+            if (leagueGroup) {
+                leagueGroup.matches.push(matchCard)
+            }
         }
 
         // Sort matches within leagues

@@ -76,6 +76,7 @@ export interface APIFootballFixture {
         penalty: { home: number | null; away: number | null }
     }
     events?: APIFootballEvent[]
+    statistics?: { type: string; value: any }[]
 }
 
 export interface APIFootballEvent {
