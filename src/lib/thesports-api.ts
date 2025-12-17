@@ -42,10 +42,38 @@ const teamCache = new Map<string, TheSportsTeam>()
 const competitionCache = new Map<string, TheSportsCompetition>()
 
 // =============================================================================
-// Base Fetch Helper
+// Response Cache (reduces API calls significantly)
 // =============================================================================
 
-async function fetchFromProxy<T>(endpoint: string, params: Record<string, string> = {}): Promise<T | null> {
+interface CacheEntry<T> {
+    data: T
+    expiry: number
+}
+
+const responseCache = new Map<string, CacheEntry<any>>()
+const CACHE_TTL_MS = 60 * 1000 // 60 seconds cache
+
+function getCachedResponse<T>(cacheKey: string): T | null {
+    const entry = responseCache.get(cacheKey)
+    if (entry && Date.now() < entry.expiry) {
+        console.log(`[TheSportsAPI] Cache HIT: ${cacheKey}`)
+        return entry.data as T
+    }
+    return null
+}
+
+function setCachedResponse<T>(cacheKey: string, data: T): void {
+    responseCache.set(cacheKey, {
+        data,
+        expiry: Date.now() + CACHE_TTL_MS
+    })
+}
+
+// =============================================================================
+// Base Fetch Helper with Caching and Retry
+// =============================================================================
+
+async function fetchFromProxy<T>(endpoint: string, params: Record<string, string> = {}, skipCache: boolean = false): Promise<T | null> {
     const baseUrl = getProxyUrl()
     const url = new URL(`${baseUrl}/api${endpoint}`)
 
@@ -55,27 +83,60 @@ async function fetchFromProxy<T>(endpoint: string, params: Record<string, string
         }
     })
 
-    try {
-        console.log(`[TheSportsAPI] → ${endpoint}`)
-        const res = await fetch(url.toString())
+    const cacheKey = url.toString()
 
-        if (!res.ok) {
-            console.error(`[TheSportsAPI] HTTP ${res.status}`)
-            return null
-        }
-
-        const data = await res.json()
-
-        if (data.code !== 0 && data.code !== undefined) {
-            console.error(`[TheSportsAPI] Error:`, data)
-            return null
-        }
-
-        return data as T
-    } catch (err) {
-        console.error(`[TheSportsAPI] Fetch error:`, err)
-        return null
+    // Check cache first (unless explicitly skipped)
+    if (!skipCache) {
+        const cached = getCachedResponse<T>(cacheKey)
+        if (cached) return cached
     }
+
+    // Retry logic with exponential backoff for rate limits
+    const maxRetries = 3
+    let lastError: any = null
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            if (attempt > 0) {
+                const delayMs = Math.pow(2, attempt) * 1000 // 2s, 4s, 8s
+                console.log(`[TheSportsAPI] Retry ${attempt}/${maxRetries} after ${delayMs}ms delay...`)
+                await new Promise(resolve => setTimeout(resolve, delayMs))
+            }
+
+            console.log(`[TheSportsAPI] → ${endpoint}${attempt > 0 ? ` (retry ${attempt})` : ''}`)
+            const res = await fetch(url.toString())
+
+            if (!res.ok) {
+                console.error(`[TheSportsAPI] HTTP ${res.status}`)
+                return null
+            }
+
+            const data = await res.json()
+
+            // Check for rate limit error
+            if (data.error === 'Too Many Requests.' || data.code === -1) {
+                console.warn(`[TheSportsAPI] Rate limited on ${endpoint}, attempt ${attempt + 1}/${maxRetries}`)
+                lastError = data
+                continue // Retry
+            }
+
+            if (data.code !== 0 && data.code !== undefined) {
+                console.error(`[TheSportsAPI] Error:`, data)
+                return null
+            }
+
+            // Cache successful response
+            setCachedResponse(cacheKey, data)
+
+            return data as T
+        } catch (err) {
+            console.error(`[TheSportsAPI] Fetch error:`, err)
+            lastError = err
+        }
+    }
+
+    console.error(`[TheSportsAPI] All ${maxRetries} retries failed for ${endpoint}`, lastError)
+    return null
 }
 
 // =============================================================================
