@@ -427,9 +427,6 @@ export class TheSportsAPI {
     }
 
     /**
-     * Bulk fetch team info
-     */
-    /**
      * Bulk fetch team info with chunking to avoid payload limits
      */
     static async getTeamsBulk(teamIds: string[]): Promise<Map<string, TheSportsTeam>> {
@@ -500,6 +497,28 @@ export class TheSportsAPI {
         return result
     }
 
+    /**
+     * Fetch multiple competitions concurrently with rate limiting
+     */
+    static async getCompetitionsConcurrently(compIds: string[]): Promise<void> {
+        const toFetch = compIds.filter(id => !competitionCache.has(id))
+        if (toFetch.length === 0) return
+
+        console.log(`[TheSportsAPI] Fetching ${toFetch.length} competitions concurrently...`)
+
+        // Process in batches of 10 to avoid overwhelming the proxy
+        const BATCH_SIZE = 10
+        for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
+            const batch = toFetch.slice(i, i + BATCH_SIZE)
+            await Promise.all(batch.map(id => this.getCompetitionInfo(id)))
+
+            // Tiny breathing room for the proxy
+            if (i + BATCH_SIZE < toFetch.length) {
+                await new Promise(resolve => setTimeout(resolve, 20))
+            }
+        }
+    }
+
     // =========================================================================
     // LEGACY COMPATIBILITY - Maps to APIFootballFixture format
     // =========================================================================
@@ -528,9 +547,8 @@ export class TheSportsAPI {
         // Fetch team and competition info
         await this.getTeamsBulk(Array.from(teamIds))
 
-        for (const compId of Array.from(compIds)) {
-            await this.getCompetitionInfo(compId)
-        }
+        // Parallel fetch for competitions
+        await this.getCompetitionsConcurrently(Array.from(compIds))
 
         // Map to APIFootballFixture
         return diary.map(match => {
@@ -574,9 +592,10 @@ export class TheSportsAPI {
 
         // Fetch info
         await this.getTeamsBulk(Array.from(teamIds))
-        for (const compId of Array.from(compIds)) {
-            await this.getCompetitionInfo(compId)
-        }
+
+        // Fetch competitions concurrently
+        const uniqueCompIds = Array.from(compIds)
+        await this.getCompetitionsConcurrently(uniqueCompIds)
 
         return diary.map(match => {
             const homeTeam = teamCache.get(match.home_team_id)
