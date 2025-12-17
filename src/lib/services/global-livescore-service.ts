@@ -5,6 +5,7 @@
  * NOW WITH AI PREDICTION MERGE FROM SUPABASE
  */
 
+import { unstable_cache } from 'next/cache'
 import { APIFootballFixture, isFixtureLive, isFixtureFinished, getStatusLabel } from '@/lib/api-football'
 import { TheSportsAPI } from '@/lib/thesports-api'
 import { MomentumEngine, MomentumInsight } from './momentum-engine'
@@ -84,24 +85,23 @@ interface DBPrediction {
     result?: string
 }
 
-// Normalize team name for matching
+// -----------------------------------------------------------------------------
+// Helper Functions
+// -----------------------------------------------------------------------------
+
 function normalizeTeamName(name: string): string {
     if (!name) return ''
-
-    // Start with lowercase
     let normalized = name.toLowerCase()
 
-    // Manual Fixes for Common Mismatches
+    // Manual Fixes
     if (normalized.includes('panaitolikos')) return 'panetolikos'
 
-    // German team name normalization (before stripping special chars)
     normalized = normalized.replace(/münchen|munchen|munich/g, 'munchen')
     normalized = normalized.replace(/mainz\s*05|fsv mainz/g, 'mainz')
 
-    // Apply full normalization pipeline
     return normalized
-        .replace(/\([^)]*\)/g, '') // Remove parentheses content
-        .replace(/\b(fc|sk|fk|ik|fsv|vfb|vfl|sc|sv|rb|bsc|tsg|bv|tsv|ssc|united|city|town|sports|spor|calcio|ac|as|1899|1904|1909|1860)\b/g, '') // Remove common prefixes
+        .replace(/\([^)]*\)/g, '')
+        .replace(/\b(fc|sk|fk|ik|fsv|vfb|vfl|sc|sv|rb|bsc|tsg|bv|tsv|ssc|united|city|town|sports|spor|calcio|ac|as|1899|1904|1909|1860)\b/g, '')
         .replace(/[áàâã]/g, 'a')
         .replace(/[éèê]/g, 'e')
         .replace(/[íìî]/g, 'i')
@@ -111,9 +111,25 @@ function normalizeTeamName(name: string): string {
         .replace(/[ñ]/g, 'n')
         .replace(/[çć]/g, 'c')
         .replace(/[ß]/g, 'ss')
-        .replace(/[^a-z0-9]/g, '') // Remove ALL non-alphanumeric (including spaces)
+        .replace(/[^a-z0-9]/g, '')
         .trim()
 }
+
+// -----------------------------------------------------------------------------
+// CACHED FETCH WRAPPER
+// Uses Next.js unstable_cache to persist data across requests/functions
+// -----------------------------------------------------------------------------
+
+const getCachedGlobalLivescore = unstable_cache(
+    async (includeFinished: boolean) => {
+        return await GlobalLivescoreService.fetchStart(includeFinished)
+    },
+    ['global-livescore-v1'],
+    {
+        revalidate: 30, // 30 seconds cache
+        tags: ['livescore']
+    }
+)
 
 // -----------------------------------------------------------------------------
 // Service
@@ -122,16 +138,287 @@ function normalizeTeamName(name: string): string {
 export class GlobalLivescoreService {
 
     /**
-     * Fetch predictions from Supabase predictions_raw table
+     * Fetch ALL fixtures for today + live matches
+     * CACHED via Next.js Data Cache (30s)
+     */
+    static async fetchGlobalLivescore(includeFinished: boolean = true): Promise<LivescoreResponse> {
+        return await getCachedGlobalLivescore(includeFinished)
+    }
+
+    /**
+     * Internal Fetch Logic (Uncached)
+     * Public so the standalone cache function can call it
+     */
+    public static async fetchStart(includeFinished: boolean): Promise<LivescoreResponse> {
+        console.log('[GlobalLivescore] Fetching all fixtures (Uncached)...')
+
+        const formatDate = (d: Date) => d.toISOString().split('T')[0]
+
+        // Helper to safely fetch fixtures with delay
+        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+        const safeFetch = async (promise: Promise<APIFootballFixture[]>, label: string) => {
+            try {
+                console.log(`[GlobalLivescore] Fetching ${label}...`)
+                const result = await promise
+                console.log(`[GlobalLivescore] ${label}: ${result.length} matches`)
+                return result
+            } catch (e) {
+                console.error(`[GlobalLivescore] Failed to fetch ${label}:`, e)
+                return []
+            }
+        }
+
+        // SEQUENTIAL FETCHING with delays to avoid rate limiting
+        const today = new Date()
+
+        const todayFixtures = await safeFetch(TheSportsAPI.getFixturesByDate(formatDate(today)), 'today')
+        await delay(1000) // 1s delay
+        const liveFixtures = await safeFetch(TheSportsAPI.getLiveFixtures(), 'live')
+
+        const yesterdayFixtures: APIFootballFixture[] = []
+        const tomorrowFixtures: APIFootballFixture[] = []
+
+        // STEP 2: Fetch Supabase predictions
+        const dbPredictions = await this.fetchPredictionsFromDB()
+
+        // Merge and deduplicate fixtures
+        const fixtureMap = new Map<number | string, APIFootballFixture>()
+        yesterdayFixtures.forEach(f => fixtureMap.set(f.fixture.id, f))
+        todayFixtures.forEach(f => fixtureMap.set(f.fixture.id, f))
+        tomorrowFixtures.forEach(f => fixtureMap.set(f.fixture.id, f))
+        liveFixtures.forEach(f => fixtureMap.set(f.fixture.id, f))
+
+        let allFixtures = Array.from(fixtureMap.values())
+
+        if (!includeFinished) {
+            allFixtures = allFixtures.filter(f => !isFixtureFinished(f.fixture.status.short))
+        }
+
+        console.log(`[GlobalLivescore] Total fixtures: ${allFixtures.length}`)
+
+        // STEP 3: THE MERGE - Enrich fixtures with AI predictions
+        let matchedCount = 0
+        const enrichedFixtures = allFixtures.map(fixture => {
+            const prediction = this.findPredictionForFixture(fixture, dbPredictions)
+
+            if (prediction) matchedCount++
+
+            // Calculate Momentum Insight
+            const insight = MomentumEngine.analyze(fixture)
+
+            return {
+                fixture,
+                prediction,
+                insight
+            }
+        })
+
+        console.log(`[GlobalLivescore] Matched ${matchedCount} predictions with LiveScore data`)
+
+        // Start auto-settlement asynchronously (fire and forget)
+        this.processLiveSettlements(enrichedFixtures.map(e => ({
+            ...e.fixture,
+            hasAIPrediction: !!e.prediction,
+            aiPredictionData: e.prediction ? {
+                id: e.prediction.id,
+                prediction: e.prediction.prediction_type,
+                bot_name: e.prediction.bot_name || 'System',
+                minute: e.prediction.match_minute ? parseInt(e.prediction.match_minute) : null,
+                confidence: e.prediction.confidence || 0,
+                result: e.prediction.result || 'pending',
+                home: e.fixture.teams.home.name,
+                away: e.fixture.teams.away.name
+            } : null
+        })))
+
+        // STEP 4: Group by Country > League
+        const grouped = this.groupByCountryAndLeague(enrichedFixtures)
+
+        const liveCount = allFixtures.filter(f => isFixtureLive(f.fixture.status.short)).length
+
+        return {
+            timestamp: new Date().toISOString(),
+            liveCount,
+            totalCount: allFixtures.length,
+            countries: grouped
+        }
+    }
+
+    /**
+     * Group multiple fixtures into Country > League
+     */
+    private static groupByCountryAndLeague(
+        fixtures: { fixture: APIFootballFixture, prediction: DBPrediction | null, insight: MomentumInsight | null }[]
+    ): CountryGroup[] {
+        const countryMap = new Map<string, CountryGroup>()
+
+        for (const item of fixtures) {
+            const f = item.fixture
+            const p = item.prediction
+            const insight = item.insight
+
+            const countryName = f.league.country || 'World'
+            const countryFlag = f.league.flag || ''
+            const leagueName = f.league.name
+            const leagueId = f.league.id
+            const leagueLogo = f.league.logo
+
+            if (!countryMap.has(countryName)) {
+                countryMap.set(countryName, {
+                    name: countryName,
+                    code: f.league.country?.substring(0, 3).toUpperCase() || 'WLD',
+                    flag: countryFlag,
+                    leagues: []
+                })
+            }
+
+            const countryGroup = countryMap.get(countryName)!
+            let leagueGroup = countryGroup.leagues.find(l => l.name === leagueName)
+
+            if (!leagueGroup) {
+                leagueGroup = {
+                    id: leagueId,
+                    name: leagueName,
+                    logo: leagueLogo,
+                    round: f.league.round,
+                    matches: []
+                }
+                countryGroup.leagues.push(leagueGroup)
+            }
+
+            // Convert to UI MatchCard
+            const matchCard: MatchCard = {
+                id: f.fixture.id.toString(),
+                status: f.fixture.status.short,
+                statusLabel: getStatusLabel(f.fixture.status.short),
+                minute: f.fixture.status.elapsed,
+                startTime: new Date(f.fixture.timestamp * 1000).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+                timestamp: f.fixture.timestamp,
+                home: {
+                    id: f.teams.home.id,
+                    name: f.teams.home.name,
+                    logo: f.teams.home.logo,
+                    score: f.goals.home ?? 0
+                },
+                away: {
+                    id: f.teams.away.id,
+                    name: f.teams.away.name,
+                    logo: f.teams.away.logo,
+                    score: f.goals.away ?? 0
+                },
+                insight: insight,
+                isLive: isFixtureLive(f.fixture.status.short),
+                hasAIPrediction: !!p,
+                aiPredictionData: p ? {
+                    bot_name: p.bot_name || 'System',
+                    prediction: p.prediction_type,
+                    minute: p.match_minute ? parseInt(p.match_minute) : null,
+                    confidence: p.confidence || 0
+                } : null
+            }
+
+            leagueGroup.matches.push(matchCard)
+        }
+
+        // Sort matches within leagues
+        for (const country of countryMap.values()) {
+            for (const league of country.leagues) {
+                league.matches.sort((a, b) => {
+                    if (a.isLive && !b.isLive) return -1
+                    if (!a.isLive && b.isLive) return 1
+                    return a.timestamp - b.timestamp
+                })
+            }
+        }
+
+        return Array.from(countryMap.values()).sort((a, b) => a.name.localeCompare(b.name))
+    }
+
+    /**
+     * Process live settlements (Early Win Check)
+     */
+    private static async processLiveSettlements(fixtures: any[]) {
+        try {
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+            const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+            if (!supabaseUrl || !supabaseServiceKey) {
+                console.log('[GlobalLivescore] Supabase not configured for settlement, skipping.')
+                return
+            }
+
+            const candidates = fixtures.filter(f =>
+                f.hasAIPrediction &&
+                f.aiPredictionData &&
+                f.aiPredictionData.result === 'pending' &&
+                ['1H', 'HT', '2H', 'ET', 'P', 'FT', 'AET', 'PEN'].includes(f.fixture.status.short)
+            )
+
+            if (candidates.length === 0) return
+
+            const updates = []
+
+            for (const match of candidates) {
+                const pred = match.aiPredictionData
+                if (!pred) continue
+
+                const homeGoals = match.goals.home ?? 0
+                const awayGoals = match.goals.away ?? 0
+                const htHome = match.score?.halftime?.home ?? 0
+                const htAway = match.score?.halftime?.away ?? 0
+                const status = match.fixture.status.short
+
+                const { result, log } = PredictionEvaluator.evaluate(
+                    pred.prediction,
+                    homeGoals,
+                    awayGoals,
+                    htHome,
+                    htAway,
+                    status
+                )
+
+                if (result === 'won' || result === 'lost') {
+                    updates.push({
+                        id: pred.id,
+                        result: result,
+                        final_score: `${homeGoals}-${awayGoals}`,
+                        processing_log: log,
+                        settled_at: new Date().toISOString()
+                    })
+                    const emoji = result === 'won' ? '✅' : '❌'
+                    console.log(`[Auto-Settlement] LIVE DECISION ${emoji}: ${pred.home} vs ${pred.away} | ${pred.prediction} | Result: ${result}`)
+                }
+            }
+
+            if (updates.length > 0) {
+                const supabase = createClient(supabaseUrl, supabaseServiceKey)
+                for (const update of updates) {
+                    await supabase
+                        .from('predictions_raw')
+                        .update({
+                            result: update.result,
+                            final_score: update.final_score,
+                            processing_log: update.processing_log,
+                            settled_at: update.settled_at
+                        })
+                        .eq('id', update.id)
+                }
+            }
+
+        } catch (error) {
+            console.error('[GlobalLivescore] Auto-settlement error:', error)
+        }
+    }
+
+    /**
+     * Fetch predictions from Supabase
      */
     private static async fetchPredictionsFromDB(): Promise<DBPrediction[]> {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
         const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-        if (!supabaseUrl || !supabaseKey) {
-            console.log('[GlobalLivescore] Supabase not configured, skipping predictions')
-            return []
-        }
+        if (!supabaseUrl || !supabaseKey) return []
 
         try {
             const supabase = createClient(supabaseUrl, supabaseKey)
@@ -149,10 +436,7 @@ export class GlobalLivescoreService {
                     match_minute,
                     confidence,
                     result,
-                    bot_groups (
-                        name,
-                        display_name
-                    )
+                    bot_groups ( name, display_name )
                 `)
                 .gte('received_at', twoDaysAgo.toISOString())
 
@@ -160,8 +444,6 @@ export class GlobalLivescoreService {
                 console.error('[GlobalLivescore] Supabase error:', error)
                 return []
             }
-
-            console.log(`[GlobalLivescore] Fetched ${predictions?.length || 0} predictions from DB`)
 
             return (predictions || []).map(p => ({
                 id: p.id,
@@ -183,158 +465,15 @@ export class GlobalLivescoreService {
     /**
      * Find matching prediction for a fixture
      */
-    /**
-     * Public helper for team name normalization
-     */
-    public static normalizeTeamName(name: string): string {
-        return normalizeTeamName(name)
-    }
-
-    /**
-     * Helper to detect age/gender suffixes
-     */
-    public static hasExclusionSuffix(name: string): string | null {
-        if (name.includes('(w)') || name.includes(' women') || name.includes(' ladies')) return 'w'
-        return null
-    }
-
-    /**
-     * Check if leagues are incompatible
-     */
-    public static isLeagueMismatch(predLeague: string | undefined, apiLeague: string, apiCountry: string): boolean {
-        if (!predLeague) return false // No info, assume match
-
-        const pl = predLeague.toLowerCase()
-        const al = apiLeague.toLowerCase()
-        const ac = apiCountry.toLowerCase()
-
-        // 1. Gender/Age Mismatch in League Name
-        if ((pl.includes('women') || pl.includes('(w)') || pl.includes('ladies')) &&
-            !(al.includes('women') || al.includes('(w)') || al.includes('ladies'))) return true
-
-        if ((pl.includes('u21') || pl.includes('youth') || pl.includes('reserve')) &&
-            !(al.includes('u21') || al.includes('youth') || al.includes('reserve'))) return true
-
-        // 2. Country Context Mismatch (Hard to do perfectly without country in pred, but try known keywords)
-        // Example: If pred league says "Scotland" but api country is "Andorra"
-        if (pl.includes('scotland') && ac !== 'scotland') return true
-        if (pl.includes('england') && ac !== 'england') return true
-        if (pl.includes('germany') && ac !== 'germany') return true
-
-        // Greece Bypass: Allow "Super League" ambiguity if country is Greece
-        if (ac === 'greece' && pl.includes('greece')) return false
-
-        return false
-    }
-
-    // -------------------------------------------------------------------------
-    // AUTO-SETTLEMENT ENGINE (HYBRID)
-    // -------------------------------------------------------------------------
-
-    /**
-     * Process live settlements (Early Win Check)
-     * This is called during the fetch cycle to settle bets instantly
-     */
-    private static async processLiveSettlements(fixtures: any[]) {
-        try {
-            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-            const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-            if (!supabaseUrl || !supabaseServiceKey) {
-                console.log('[GlobalLivescore] Supabase not configured for settlement, skipping.')
-                return
-            }
-
-            // Filter only LIVE matches that have a PENDING prediction
-            const candidates = fixtures.filter(f =>
-                f.hasAIPrediction &&
-                f.aiPredictionData &&
-                f.aiPredictionData.result === 'pending' && // Only pending bets
-                ['1H', 'HT', '2H', 'ET', 'P', 'FT', 'AET', 'PEN'].includes(f.fixture.status.short) // Live AND Finished matches
-            )
-
-            if (candidates.length === 0) return
-
-            const updates = []
-
-            for (const match of candidates) {
-                const pred = match.aiPredictionData
-                if (!pred) continue // Should not happen due to filter
-
-                const homeGoals = match.goals.home ?? 0
-                const awayGoals = match.goals.away ?? 0
-                // Safe access to halftime score (might be null in some API responses)
-                const htHome = match.score?.halftime?.home ?? 0
-                const htAway = match.score?.halftime?.away ?? 0
-                const status = match.fixture.status.short
-
-                // Evaluate using the library
-                const { result, log } = PredictionEvaluator.evaluate(
-                    pred.prediction,
-                    homeGoals,
-                    awayGoals,
-                    htHome,
-                    htAway,
-                    status
-                )
-
-                // If DECIDED (Won OR Lost), update DB immediately
-                if (result === 'won' || result === 'lost') {
-                    updates.push({
-                        id: pred.id,
-                        result: result,
-                        final_score: `${homeGoals}-${awayGoals}`,
-                        processing_log: log,
-                        settled_at: new Date().toISOString()
-                    })
-                    const emoji = result === 'won' ? '✅' : '❌'
-                    console.log(`[Auto-Settlement] LIVE DECISION ${emoji}: ${pred.home} vs ${pred.away} | ${pred.prediction} | Result: ${result}`)
-                }
-            }
-
-            // Batch Update
-            if (updates.length > 0) {
-                const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-                for (const update of updates) {
-                    await supabase
-                        .from('predictions_raw')
-                        .update({
-                            result: update.result,
-                            final_score: update.final_score,
-                            processing_log: update.processing_log,
-                            settled_at: update.settled_at
-                        })
-                        .eq('id', update.id)
-                }
-            }
-
-        } catch (error) {
-            console.error('[GlobalLivescore] Auto-settlement error:', error)
-        }
-    }
-
-    /**
-     * MATCHING ALGORITHM V4 (SEQUENTIAL WATERFALL)
-     * 1. Live Status Check (Gatekeeper)
-     * 2. Broad Name Search (Candidate Collection)
-     * 3. League & Context Filter (Validation)
-     * 4. Final Decision (Uniqueness)
-     */
     public static findPredictionForFixture(
         fixture: APIFootballFixture,
         predictions: DBPrediction[]
     ): DBPrediction | null {
-        // STEP 1: CONTEXT VALIDATION
-        // We match against any fixture provided (Live, NS, or FT)
-        // No status filtering here required as we want to show icons for all matches.
-
         const apiHomeRaw = fixture.teams.home.name
         const apiAwayRaw = fixture.teams.away.name
         const apiHome = normalizeTeamName(apiHomeRaw)
         const apiAway = normalizeTeamName(apiAwayRaw)
 
-        // Prepare API words once
         const apiHomeWords = apiHome.split(' ').filter(w => w.length >= 4)
         const apiAwayWords = apiAway.split(' ').filter(w => w.length >= 4)
 
@@ -343,7 +482,6 @@ export class GlobalLivescoreService {
         const apiLeagueName = fixture.league.name
         const apiCountry = fixture.league.country || ''
 
-        // STEP 2: BROAD TEAM SEARCH (COLLECT CANDIDATES)
         const nameCandidates: DBPrediction[] = []
 
         for (const pred of predictions) {
@@ -352,14 +490,11 @@ export class GlobalLivescoreService {
             const predHome = normalizeTeamName(predHomeRaw)
             const predAway = normalizeTeamName(predAwayRaw)
 
-            // CRITICAL FIX: Ignore short/empty names to prevent "includes('')" bug
             if (predHome.length < 3 || predAway.length < 3) continue
 
             const predHomeWords = predHome.split(' ').filter(w => w.length >= 4)
             const predAwayWords = predAway.split(' ').filter(w => w.length >= 4)
 
-            // DUAL MATCH RULE: Both Home AND Away must match loosely
-            // Fix: Check length before includes
             const homeMatch =
                 (apiHomeWords.length > 0 && apiHomeWords.some(w => predHomeWords.includes(w))) ||
                 (predHomeWords.length > 0 && predHomeWords.some(w => apiHomeWords.includes(w))) ||
@@ -377,291 +512,54 @@ export class GlobalLivescoreService {
             }
         }
 
-        // PRE-OPTIMIZATION: If no name matches, return early
         if (nameCandidates.length === 0) return null
 
-        // STEP 3: LEAGUE & CONTEXT FILTER (VALIDATION)
         const validCandidates = nameCandidates.filter(pred => {
             const predHomeRaw = pred.home_team_name || ''
             const predAwayRaw = pred.away_team_name || ''
 
-            // 3.1 Suffix Guard
             const predHomeSuffix = this.hasExclusionSuffix(predHomeRaw)
             const predAwaySuffix = this.hasExclusionSuffix(predAwayRaw)
 
             if (apiHomeSuffix !== predHomeSuffix) return false
             if (apiAwaySuffix !== predAwaySuffix) return false
-
-            // 3.2 League Context & Country Mismatch
             if (this.isLeagueMismatch(pred.league_name, apiLeagueName, apiCountry)) return false
 
             return true
         })
 
-        // STEP 4: RESULT DECISION (UNIQUENESS)
-        // Only return if exactly one candidate remains to ensure accuracy
-        if (validCandidates.length === 1) {
-            return validCandidates[0]
-        }
-
-        // If 0, no match.
-        // If >1, ambiguous match (safety: return null to avoid wrong icon).
+        if (validCandidates.length === 1) return validCandidates[0]
         return null
     }
 
-    /**
-     * Fetch ALL fixtures for today + live matches
-     * Group by Country > League
-     * Enrich with Momentum insights AND AI Predictions
-     */
-    static async fetchGlobalLivescore(includeFinished: boolean = true): Promise<LivescoreResponse> {
-        console.log('[GlobalLivescore] Fetching all fixtures...')
-
-        // STEP 1: Fetch fixtures for 3 days (Yesterday, Today, Tomorrow) + Live
-        const today = new Date()
-        const yesterday = new Date(today)
-        yesterday.setDate(today.getDate() - 1)
-        const tomorrow = new Date(today)
-        tomorrow.setDate(today.getDate() + 1)
-
-        const formatDate = (d: Date) => d.toISOString().split('T')[0]
-
-        // Helper to safely fetch fixtures with delay
-        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-
-        const safeFetch = async (promise: Promise<APIFootballFixture[]>, label: string) => {
-            try {
-                console.log(`[GlobalLivescore] Fetching ${label}...`)
-                const result = await promise
-                console.log(`[GlobalLivescore] ${label}: ${result.length} matches`)
-                return result
-            } catch (e) {
-                console.error(`[GlobalLivescore] Failed to fetch ${label}:`, e)
-                return []
-            }
-        }
-
-        // SEQUENTIAL FETCHING with delays to avoid rate limiting
-        // Only fetch today's matches and live - skip yesterday/tomorrow for speed
-        console.log('[GlobalLivescore] Starting sequential fetch...')
-
-        const todayFixtures = await safeFetch(TheSportsAPI.getFixturesByDate(formatDate(today)), 'today')
-        await delay(2000) // Wait 2 seconds
-
-        const liveFixtures = await safeFetch(TheSportsAPI.getLiveFixtures(), 'live')
-
-        // Skip yesterday and tomorrow for now to reduce API calls
-        const yesterdayFixtures: APIFootballFixture[] = []
-        const tomorrowFixtures: APIFootballFixture[] = []
-
-        // STEP 2: Fetch Supabase predictions
-        const dbPredictions = await this.fetchPredictionsFromDB()
-
-        // Merge and deduplicate fixtures
-        const fixtureMap = new Map<number | string, APIFootballFixture>()
-        yesterdayFixtures.forEach(f => fixtureMap.set(f.fixture.id, f))
-        todayFixtures.forEach(f => fixtureMap.set(f.fixture.id, f))
-        tomorrowFixtures.forEach(f => fixtureMap.set(f.fixture.id, f))
-        liveFixtures.forEach(f => fixtureMap.set(f.fixture.id, f))
-
-        let allFixtures = Array.from(fixtureMap.values())
-
-        // Filter finished if requested
-        if (!includeFinished) {
-            allFixtures = allFixtures.filter(f => !isFixtureFinished(f.fixture.status.short))
-        }
-
-        console.log(`[GlobalLivescore] Total fixtures: ${allFixtures.length} (Y:${yesterdayFixtures.length}, T:${todayFixtures.length}, Tm:${tomorrowFixtures.length}, L:${liveFixtures.length})`)
-
-        // STEP 3: THE MERGE - Enrich fixtures with AI predictions
-        let matchedCount = 0
-        const enrichedFixtures = allFixtures.map(fixture => {
-            const prediction = this.findPredictionForFixture(fixture, dbPredictions)
-
-            if (prediction) {
-                matchedCount++
-                console.log(`[MERGE] Match: ${fixture.teams.home.name} vs ${fixture.teams.away.name} | API_ID: ${fixture.fixture.id} | Found in DB: TRUE | has_ai_prediction: TRUE`)
-            }
-
-            return {
-                ...fixture,
-                hasAIPrediction: !!prediction,
-                aiPredictionData: prediction ? {
-                    id: prediction.id, // Important for updates
-                    bot_name: prediction.bot_name || 'ALERT D',
-                    prediction: prediction.prediction_type || 'N/A',
-                    minute: prediction.match_minute ? parseInt(prediction.match_minute) : null,
-                    confidence: prediction.confidence || 75,
-                    result: prediction.result || 'pending',
-                    home: prediction.home_team_name,
-                    away: prediction.away_team_name
-                } : null
-            }
-        })
-
-        console.log(`[GlobalLivescore] Matched ${matchedCount} fixtures with AI predictions`)
-
-        // AWAIT Settlement to ensure it runs in Serverless environment
-        // Fire-and-forget is unreliable in Vercel/Next.js API routes
-        try {
-            await this.processLiveSettlements(enrichedFixtures)
-        } catch (err) {
-            console.error('Settlement error:', err)
-        }
-
-        // Enrich with momentum insights
-        const withInsights = await this.enrichWithInsights(enrichedFixtures as any)
-
-        // Group by Country > League
-        const grouped = this.groupByCountryAndLeague(withInsights as any)
-
-        const liveCount = allFixtures.filter(f => isFixtureLive(f.fixture.status.short)).length
-
-        return {
-            timestamp: new Date().toISOString(),
-            liveCount,
-            totalCount: allFixtures.length,
-            countries: grouped
-        }
+    public static normalizeTeamName(name: string): string {
+        return normalizeTeamName(name)
     }
 
-    /**
-     * Enrich fixtures with Momentum Engine insights
-     */
-    private static async enrichWithInsights(
-        fixtures: APIFootballFixture[]
-    ): Promise<(APIFootballFixture & { insight: MomentumInsight })[]> {
-        return fixtures.map(fixture => {
-            let insight: MomentumInsight = { type: null, message: null, emoji: null, confidence: 0 }
-
-            // Only analyze live matches with potential stats in events
-            if (isFixtureLive(fixture.fixture.status.short)) {
-                // For now, generate basic insight from score differential
-                const homeScore = fixture.goals.home ?? 0
-                const awayScore = fixture.goals.away ?? 0
-                const minute = fixture.fixture.status.elapsed
-
-                if (minute && minute >= 60 && homeScore === awayScore) {
-                    insight = {
-                        type: 'goal_expected',
-                        message: 'Beraberlik Baskısı',
-                        emoji: '⚡',
-                        confidence: 60
-                    }
-                } else if (minute && minute >= 75 && Math.abs(homeScore - awayScore) === 1) {
-                    insight = {
-                        type: 'late_drama',
-                        message: 'Gerilim Yüksek',
-                        emoji: '🔥',
-                        confidence: 70
-                    }
-                } else if (homeScore + awayScore >= 3 && minute && minute < 60) {
-                    insight = {
-                        type: 'goal_expected',
-                        message: 'Gol Şov',
-                        emoji: '🎯',
-                        confidence: 75
-                    }
-                }
-            }
-
-            return { ...fixture, insight }
-        })
+    public static hasExclusionSuffix(name: string): string | null {
+        if (name.includes('(w)') || name.includes(' women') || name.includes(' ladies')) return 'w'
+        return null
     }
 
-    /**
-     * Group fixtures by Country > League
-     */
-    private static groupByCountryAndLeague(
-        fixtures: (APIFootballFixture & { insight: MomentumInsight })[]
-    ): CountryGroup[] {
-        const countryMap = new Map<string, CountryGroup>()
+    public static isLeagueMismatch(predLeague: string | undefined, apiLeague: string, apiCountry: string): boolean {
+        if (!predLeague) return false
 
-        for (const fixture of fixtures) {
-            const countryName = fixture.league.country
-            const countryFlag = fixture.league.flag || '🌍'
+        const pl = predLeague.toLowerCase()
+        const al = apiLeague.toLowerCase()
+        const ac = apiCountry.toLowerCase()
 
-            // Get or create country
-            if (!countryMap.has(countryName)) {
-                countryMap.set(countryName, {
-                    name: countryName,
-                    code: countryName.substring(0, 2).toUpperCase(),
-                    flag: countryFlag,
-                    leagues: []
-                })
-            }
+        if ((pl.includes('women') || pl.includes('(w)') || pl.includes('ladies')) &&
+            !(al.includes('women') || al.includes('(w)') || al.includes('ladies'))) return true
 
-            const country = countryMap.get(countryName)!
+        if ((pl.includes('u21') || pl.includes('youth') || pl.includes('reserve')) &&
+            !(al.includes('u21') || al.includes('youth') || al.includes('reserve'))) return true
 
-            // Find or create league
-            let league = country.leagues.find(l => l.id === fixture.league.id)
-            if (!league) {
-                league = {
-                    id: fixture.league.id,
-                    name: fixture.league.name,
-                    logo: fixture.league.logo,
-                    round: fixture.league.round,
-                    matches: []
-                }
-                country.leagues.push(league)
-            }
+        if (pl.includes('scotland') && ac !== 'scotland') return true
+        if (pl.includes('england') && ac !== 'england') return true
+        if (pl.includes('germany') && ac !== 'germany') return true
 
-            // Add match card
-            league.matches.push(this.fixtureToMatchCard(fixture))
-        }
+        if (ac === 'greece' && pl.includes('greece')) return false
 
-        // Sort: Countries with live matches first, then alphabetically
-        const countries = Array.from(countryMap.values())
-        countries.sort((a, b) => {
-            const aLiveCount = a.leagues.reduce((sum, l) => sum + l.matches.filter(m => m.isLive).length, 0)
-            const bLiveCount = b.leagues.reduce((sum, l) => sum + l.matches.filter(m => m.isLive).length, 0)
-
-            if (aLiveCount !== bLiveCount) return bLiveCount - aLiveCount
-            return a.name.localeCompare(b.name)
-        })
-
-        // Sort matches within leagues by time
-        for (const country of countries) {
-            for (const league of country.leagues) {
-                league.matches.sort((a, b) => a.timestamp - b.timestamp)
-            }
-        }
-
-        return countries
-    }
-
-    /**
-     * Convert fixture to MatchCard
-     */
-    private static fixtureToMatchCard(fixture: APIFootballFixture & { insight: MomentumInsight; hasAIPrediction?: boolean; aiPredictionData?: AIPredictionData | null }): MatchCard {
-        const status = fixture.fixture.status.short
-
-        return {
-            id: String(fixture.fixture.id),
-            status,
-            statusLabel: getStatusLabel(status),
-            minute: fixture.fixture.status.elapsed,
-            startTime: new Date(fixture.fixture.date).toLocaleTimeString('tr-TR', {
-                hour: '2-digit',
-                minute: '2-digit'
-            }),
-            timestamp: fixture.fixture.timestamp,
-            home: {
-                id: fixture.teams.home.id,
-                name: fixture.teams.home.name,
-                logo: fixture.teams.home.logo,
-                score: fixture.goals.home ?? 0
-            },
-            away: {
-                id: fixture.teams.away.id,
-                name: fixture.teams.away.name,
-                logo: fixture.teams.away.logo,
-                score: fixture.goals.away ?? 0
-            },
-            insight: fixture.insight.type ? fixture.insight : null,
-            isLive: isFixtureLive(status),
-            hasAIPrediction: fixture.hasAIPrediction || false,
-            aiPredictionData: fixture.aiPredictionData || null
-        }
+        return false
     }
 }
